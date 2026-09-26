@@ -5,3 +5,5 @@ testdata.db-shm
 build/
 dist/
 *.spec
+herramientas/capturas/
+NOTAS-PRIVADAS.md

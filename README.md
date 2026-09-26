@@ -60,12 +60,15 @@ migraciones.py              migraciones idempotentes de testdata.db            v
 testdata.db                 base de datos de ejemplo (3 tablas)
 tests/                      pruebas automáticas (unittest)
 docs/                       registro de mantenimiento y capturas de evidencia
+herramientas/               verificación automática de la interfaz real
+DONDE-RETOMAR.md            estado actual y cómo seguir con la próxima versión
 ```
 
 ## Pruebas
 
 ```bash
-python -m unittest -v
+python -m unittest -v                  # pruebas automáticas
+python herramientas/verificar_app.py    # recorrido real de la interfaz (Windows)
 ```
 
 37 pruebas: validación numérica (incluido pegar desde el portapapeles), migraciones, fotos, conexión única (bloqueos reales con y sin WAL, inyección SQL, rutas), navegación de ventana única y diseño adaptable a escalas de pantalla de 1.0 y 1.75.
