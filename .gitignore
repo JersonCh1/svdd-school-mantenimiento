@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+testdata.db-wal
+testdata.db-shm
+build/
+dist/
+*.spec

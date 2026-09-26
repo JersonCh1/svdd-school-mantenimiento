@@ -1,8 +1,11 @@
 import tkinter as tk
 from tkinter import messagebox
 import sqlite3
+from validacion import configurar_numerico, error_numerico
+from migraciones import migrar
 con = sqlite3.connect("testdata.db")
 cur = con.cursor()
+migrar(con)
 
 window = tk.Tk()
 window.geometry("450x300")
@@ -291,6 +294,11 @@ def logincommand(name_enter,password_enter):
                     loginas_label.place(x = 0,y = 0)
                     
                     def added(name1,lname1,fname1,mname1,dob1,bplace1,nation1,relig1,caste1,addr1,mno1,hei1,wei1,adno1,grno1,doa1,std1,div1,ctname1,hcolor1,rno1,ctsc1,photo1,username1,password1):
+                        for columna,valor in (("mno",mno1),("adno",adno1)):
+                            error = error_numerico(columna,valor)
+                            if error:
+                                messagebox.showerror("Dato no válido",error,parent = newwindow6)
+                                return
                         cur.execute("INSERT INTO StudentData VALUES('"+name1+"','"+lname1+"','"+fname1+"','"+mname1+"','"+dob1+"','"+bplace1+"','"+nation1+"','"+relig1+"','"+caste1+"','"+addr1+"','"+mno1+"','"+hei1+"','"+wei1+"','"+adno1+"','"+grno1+"','"+doa1+"','"+std1+"','"+div1+"','"+ctname1+"','"+hcolor1+"','"+rno1+"','"+ctsc1+"','"+photo1+"','"+username1+"','"+password1+"')")
                         con.commit()
                         messagebox.showinfo("Successful!","New Student Details Added Successfully")
@@ -348,6 +356,8 @@ def logincommand(name_enter,password_enter):
                     wei1 = Values(5,645,390)
                     adno = Heads("Aadhaar Card No.:",16,10,440)
                     adno1 = Values(16,200,440)
+                    configurar_numerico(mno1.enter,10)
+                    configurar_numerico(adno1.enter,12)
                     grno = Heads("General Registration No.:",21,385,440)
                     grno1 = Values(6,635,440)
                     doa = Heads("Date of Admission in School:",23,10,490)
@@ -442,12 +452,17 @@ def logincommand(name_enter,password_enter):
                             back.place(x = 550, y = 450)
                             dict1 = {"First Name":"name","Last Name":"lname","Middle Name":"fname","Mother's Name":"mname","Date of Birth":"dob",
                                 "Birth Place":"bplace","Nationality":"nation","Religion":"relig","Caste":"caste","Address":"addr",
-                                 "Mobile No.":"mno","Height":"hei","Weight":"wei","Aadhaar Card No.":"ano","General Registration No.":"gno",
+                                 "Mobile No.":"mno","Height":"hei","Weight":"wei","Aadhaar Card No.":"adno","General Registration No.":"gno",
                                  "Date of Admission":"doa","Standard":"std","Division":"div","Class Teacher's Name":"ctname","House Colour":"hcolor",
                                  "Roll No.":"rno","Teacher's Remarks":"trem"}         
                             
                             # Update button in edit student info
                             def update(b,name_ent,grno_ent,upda_ent):
+                                error = error_numerico(b,upda_ent)
+                                if error:
+                                    messagebox.showerror("Dato no válido",error,parent = newwindow3)
+                                    return
+                                upda_ent = upda_ent.strip() if b in ("mno","adno") else upda_ent
                                 cur.execute("UPDATE StudentData SET "+b+"='"+upda_ent+"' WHERE name='"+name_ent+"' AND gno='"+grno_ent+"'")
                                 con.commit()
                                 messagebox.showinfo('Updated','Updated Successfully')
@@ -609,6 +624,11 @@ def logincommand(name_enter,password_enter):
                     loginas_label.place(x = 0,y = 0)
                     
                     def added(name1,lname1,fname1,mname1,dob1,bplace1,nation1,relig1,caste1,addr1,mno1,adno1,grno1,ctfc1,staught1,tfor1,photo1,username1,password1):
+                        for columna,valor in (("mno",mno1),("adno",adno1)):
+                            error = error_numerico(columna,valor)
+                            if error:
+                                messagebox.showerror("Dato no válido",error,parent = newwindow6)
+                                return
                         cur.execute("INSERT INTO TeacherData VALUES('"+name1+"','"+lname1+"','"+fname1+"','"+mname1+"','"+dob1+"','"+bplace1+"','"+nation1+"','"+relig1+"','"+caste1+"','"+addr1+"','"+mno1+"','"+adno1+"','"+grno1+"','"+ctfc1+"','"+staught1+"','"+photo1+"','"+username1+"','"+password1+"','"+tfor1+"')")
                         con.commit()
                         messagebox.showinfo("Successful!","New Teacher Details Added Successfully")
@@ -662,6 +682,8 @@ def logincommand(name_enter,password_enter):
                     mno1 = Values(20,134,390)
                     adno = Heads("Aadhaar Card No.:",15,365,390)
                     adno1 = Values(15,545,390)
+                    configurar_numerico(mno1.enter,10)
+                    configurar_numerico(adno1.enter,12)
                     trno = Heads("Teacher's Registration No.:",23,10,440)
                     trno1 = Values(6,280,440)
                     ctfc = Heads("Class Teacher for Class:",20,378,440)
@@ -743,13 +765,18 @@ def logincommand(name_enter,password_enter):
                             back.place(x = 550, y = 450)
                             dict1 = {"First Name":"name","Last Name":"lname","Middle Name":"fname","Mother's Name":"mname","Date of Birth":"dob",
                                 "Birth Place":"bplace","Nationality":"nation","Religion":"relig","Caste":"caste","Address":"addr",
-                                 "Mobile No.":"mno","Aadhaar Card No.":"ano","Teacher's Registration No.":"trno",
+                                 "Mobile No.":"mno","Aadhaar Card No.":"adno","Teacher's Registration No.":"trno",
                                  "Class Teacher for Class":"ctfc","Subjects Taught":"staught","Teacher for":"tfor"}
                                        
                             if a.get() in dict1.keys():
                                 c = a.get()
                                 b = dict1[c]
                             def update(b,name_ent,grno_ent,upda_ent):
+                                error = error_numerico(b,upda_ent)
+                                if error:
+                                    messagebox.showerror("Dato no válido",error,parent = newwindow4)
+                                    return
+                                upda_ent = upda_ent.strip() if b in ("mno","adno") else upda_ent
                                 cur.execute("UPDATE TeacherData SET "+b+"='"+upda_ent+"' WHERE name='"+name_ent+"' AND trno='"+grno_ent+"'")
                                 con.commit()
                                 messagebox.showinfo('Updated','Updated Successfully')
@@ -844,6 +871,11 @@ def logincommand(name_enter,password_enter):
                                 d = dict2[c]
                                                         
                             def update1(b,name_ent,grno_ent,upda_ent):
+                                error = error_numerico(b,upda_ent)
+                                if error:
+                                    messagebox.showerror("Dato no válido",error,parent = newwindow5)
+                                    return
+                                upda_ent = upda_ent.strip() if b in ("mno","adno") else upda_ent
                                 cur.execute("UPDATE PrincipalData SET "+b+"='"+upda_ent+"' WHERE name='"+name_ent+"' AND trno='"+grno_ent+"'")
                                 con.commit()
                                 messagebox.showinfo('Updated','Updated Successfully')
