@@ -4,54 +4,65 @@ from validacion import configurar_numerico, error_numerico
 from db import BaseDatos, BaseDeDatosOcupada
 from migraciones import migrar
 import fotos
-from ventanas import abrir_panel, cerrar, enfocar_si_abierta, registrar
+from navegacion import Navegador
 db = BaseDatos()
 migrar(db.con)
 
 window = tk.Tk()
-window.geometry("450x300")
-window.configure(bg = '#897C78')
 window.title("S.V.D.D. School")
-
-# the label for Username 
-name_label = tk.Label(window, text = "Username :",font=("Helvetica",14,"bold"),fg = '#18120F',bg = '#FDD4B8')
-name_label.place(x = 40,y = 60)  
-    
-# the label for Password  
-password_label = tk.Label(window,text = "Password :",font=("Helvetica",14,"bold"),fg = '#18120F',bg = '#FDD4B8')
-password_label.place(x = 40,y = 110)  
-
-# Username input box
-name_entry = tk.Entry(window,width = 20,font=("Helvetica",14))
-name_entry.place(x = 170,y = 60)  
-
-#Password input box   
-password_entry = tk.Entry(window,width = 20,font=("Helvetica",14),show = '*')
-password_entry.place(x = 170,y = 110)  
-
-#Radio button for choosing 1 of 3 options
+nav = Navegador(window)
 radio = tk.IntVar()
 
-head_checkbox = tk.Radiobutton(window,text = "Principal",variable = radio,value = 1,width = 10,
-                                  font=("Helvetica",12,"bold"),bg = '#897C78',fg = '#18120F',activebackground = '#897C78')
-head_checkbox.place(x = 40,y = 160)
+def mostrar_login(usuario = ""):
+    global name_entry,password_entry
+    pantalla = nav.pantalla("450x300",bg = '#897C78')
 
-teacher_checkbox = tk.Radiobutton(window,text = "Teacher",variable = radio,value = 2,width = 10,
-                                  font=("Helvetica",12,"bold"),bg = '#897C78',fg = '#18120F',activebackground = '#897C78')
-teacher_checkbox.place(x = 168,y = 160)
+    # the label for Username 
+    name_label = tk.Label(pantalla, text = "Username :",font=("Helvetica",14,"bold"),fg = '#18120F',bg = '#FDD4B8')
+    name_label.place(x = 40,y = 60)  
 
-student_checkbox = tk.Radiobutton(window,text = "Student",width = 10,variable = radio,value = 3,
-                                  font=("Helvetica",12,"bold"),bg = '#897C78',fg = '#18120F',activebackground = '#897C78')
-student_checkbox.place(x = 278,y = 160)
+    # the label for Password  
+    password_label = tk.Label(pantalla,text = "Password :",font=("Helvetica",14,"bold"),fg = '#18120F',bg = '#FDD4B8')
+    password_label.place(x = 40,y = 110)  
 
-login_button = tk.Button(window,text = "LOG IN",width = 20,font=("Helvetica",14,"bold"),bg = '#C7A196',
-                         activebackground = '#FDD4B8',command = lambda:logincommand(name_entry.get(),password_entry.get()))
-login_button.place(x = 108,y = 210)
+    # Username input box
+    name_entry = tk.Entry(pantalla,width = 20,font=("Helvetica",14))
+    name_entry.place(x = 170,y = 60)  
 
+    #Password input box   
+    password_entry = tk.Entry(pantalla,width = 20,font=("Helvetica",14),show = '*')
+    password_entry.place(x = 170,y = 110)  
 
-def limpiar_login():
-    password_entry.delete(0,tk.END)
-    password_entry.focus_set()
+    #Radio button for choosing 1 of 3 options
+
+    head_checkbox = tk.Radiobutton(pantalla,text = "Principal",variable = radio,value = 1,width = 10,
+                                      font=("Helvetica",12,"bold"),bg = '#897C78',fg = '#18120F',activebackground = '#897C78')
+    head_checkbox.place(x = 40,y = 160)
+
+    teacher_checkbox = tk.Radiobutton(pantalla,text = "Teacher",variable = radio,value = 2,width = 10,
+                                      font=("Helvetica",12,"bold"),bg = '#897C78',fg = '#18120F',activebackground = '#897C78')
+    teacher_checkbox.place(x = 168,y = 160)
+
+    student_checkbox = tk.Radiobutton(pantalla,text = "Student",width = 10,variable = radio,value = 3,
+                                      font=("Helvetica",12,"bold"),bg = '#897C78',fg = '#18120F',activebackground = '#897C78')
+    student_checkbox.place(x = 278,y = 160)
+
+    login_button = tk.Button(pantalla,text = "LOG IN",width = 20,font=("Helvetica",14,"bold"),bg = '#C7A196',
+                             activebackground = '#FDD4B8',command = lambda:logincommand(name_entry.get(),password_entry.get()))
+    login_button.place(x = 108,y = 210)
+    name_entry.insert(0,usuario)
+    (password_entry if usuario else name_entry).focus_set()
+
+def cerrar_sesion():
+    usuario = nav.sesion[1] if nav.sesion else ""
+    nav.sesion = None
+    mostrar_login(usuario)
+
+def volver_al_panel():
+    # Back de un formulario: se vuelve a construir el panel de la sesión (con los datos ya actualizados)
+    rol,usuario,clave = nav.sesion
+    radio.set(rol)
+    logincommand(usuario,clave)
 
 def logincommand(name_enter,password_enter):
         if(radio.get()==0):
@@ -61,13 +72,8 @@ def logincommand(name_enter,password_enter):
         if(radio.get()==3):
             sesion = db.autenticar("StudentData",name_enter,password_enter)
             if(sesion is not None):
-                newwindow = tk.Toplevel(window)
-
-                newwindow.geometry("800x700")
-                newwindow.configure(bg = '#583830')
-
-                newwindow.title("S.V.D.D. School")
-                cerrar_sesion = abrir_panel(window,newwindow,limpiar_login)
+                newwindow = nav.pantalla("800x700")
+                nav.sesion = (3,name_enter,password_enter)
 
                 loginas_label = tk.Label(newwindow, text = "Logged in as Student",width = 100,justify = tk.LEFT,anchor = tk.NW,
                          font = ("PT Sans",20,"bold"),bg = '#FDD4B8')
@@ -179,12 +185,8 @@ def logincommand(name_enter,password_enter):
         if(radio.get()==2):
             sesion = db.autenticar("TeacherData",name_enter,password_enter)
             if(sesion is not None):
-                newwindow1 = tk.Toplevel(window)
-                newwindow1.geometry("770x700")
-                newwindow1.configure(bg = '#583830')
-
-                newwindow1.title("S.V.D.D. School")
-                cerrar_sesion = abrir_panel(window,newwindow1,limpiar_login)
+                newwindow1 = nav.pantalla("770x700")
+                nav.sesion = (2,name_enter,password_enter)
 
                 loginas_label = tk.Label(newwindow1, text = "Logged in as Teacher",width = 100,justify = tk.LEFT,anchor = tk.NW,
                          font = ("PT Sans",20,"bold"),bg = '#FDD4B8')
@@ -275,16 +277,7 @@ def logincommand(name_enter,password_enter):
                 
                 # Method for adding new student
                 def addnew():
-                    if enfocar_si_abierta('alta_alumno'):
-                        return
-                    newwindow6 = tk.Toplevel(newwindow1)
-                    registrar('alta_alumno',newwindow6,newwindow1)
-                    ALTA = 'alta_alumno'
-
-                    newwindow6.geometry("1000x1000")
-                    newwindow6.configure(bg = '#583830')
-
-                    newwindow6.title("S.V.D.D. School")
+                    newwindow6 = nav.pantalla("1000x730")
 
                     loginas_label = tk.Label(newwindow6, text = "Logged in as Teacher",width = 100,justify = tk.LEFT,anchor = tk.NW,
                          font = ("PT Sans",20,"bold"),bg = '#FDD4B8')
@@ -384,7 +377,7 @@ def logincommand(name_enter,password_enter):
                     password1 = Values(15,720,180)
                     photo = Heads("Photo:",10,600,70)
                     photo1 = fotos.SelectorFoto(newwindow6,720,70,850,235)
-                    back = tk.Button(newwindow6,text = "Back",command = lambda:cerrar(ALTA),anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
+                    back = tk.Button(newwindow6,text = "Back",command = volver_al_panel,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",10,"bold"),justify = tk.LEFT)
                     back.place(x = 10, y = 680)
                     enter1 = tk.Button(newwindow6,text = "Enter",command = lambda:added(name1.ret(),lname1.ret(),fname1.ret(),mname1.ret(),dob1.ret(),bplace1.ret(),nation1.ret(),relig1.ret(),caste1.ret(),addr1.get("1.0","end-1c"),mno1.ret(),hei1.ret(),wei1.ret(),adno1.ret(),grno1.ret(),doa1.ret(),std1.ret(),div1.ret(),ctname1.ret(),hcolor1.ret(),rno1.ret(),ctsc1.get("1.0","end-1c"),photo1,username1.ret(),password1.ret()),
@@ -394,13 +387,7 @@ def logincommand(name_enter,password_enter):
 
                 # Method for Editing Student Information  
                 def eedit():
-                    if enfocar_si_abierta('editar_alumno'):
-                        return
-                    newwindow3 = tk.Toplevel(newwindow1)
-                    registrar('editar_alumno',newwindow3,newwindow1)
-                    newwindow3.geometry('700x800')
-                    newwindow3.configure(bg = '#583830')
-                    newwindow3.title("S.V.D.D. School")
+                    newwindow3 = nav.pantalla("700x800")
                     loginas_label = tk.Label(newwindow3, text = "Logged in as Teacher",width = 100,justify = tk.LEFT,anchor = tk.NW,
                          font = ("PT Sans",20,"bold"),bg = '#FDD4B8')
                     loginas_label.place(x = 0,y = 0)
@@ -451,7 +438,7 @@ def logincommand(name_enter,password_enter):
                             x.place(x = 200,y = 250)
                             y = tk.Text(newwindow3,width = 40,height = 4,font = ("Cambria",14))
                             y.place(x = 200, y = 300)
-                            back = tk.Button(newwindow3,text = "Back",command = lambda:cerrar('editar_alumno'),anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
+                            back = tk.Button(newwindow3,text = "Back",command = volver_al_panel,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                   font = ("Cambria",14,"bold"),justify = tk.LEFT)
                             back.place(x = 550, y = 450)
                             dict1 = {"First Name":"name","Last Name":"lname","Middle Name":"fname","Mother's Name":"mname","Date of Birth":"dob",
@@ -494,6 +481,10 @@ def logincommand(name_enter,password_enter):
                     m = tk.Button(newwindow3,text = "Enter",command = getElement,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",14,"bold"),justify = tk.LEFT)
                     m.place(x = 200,y = 80)
+                    # Sin ventana propia ya no hay X: Back debe existir desde el inicio, no solo tras elegir un campo
+                    back = tk.Button(newwindow3,text = "Back",command = volver_al_panel,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
+                                 font = ("Cambria",14,"bold"),justify = tk.LEFT)
+                    back.place(x = 550, y = 450)
                     
 
                 # Edit student info button
@@ -519,12 +510,8 @@ def logincommand(name_enter,password_enter):
         if(radio.get()==1):
             sesion = db.autenticar("PrincipalData",name_enter,password_enter)
             if(sesion is not None):
-                newwindow2 = tk.Toplevel(window)
-                newwindow2.geometry("770x700")
-                newwindow2.configure(bg = '#583830')
-
-                newwindow2.title("S.V.D.D. School")
-                cerrar_sesion = abrir_panel(window,newwindow2,limpiar_login)
+                newwindow2 = nav.pantalla("770x700")
+                nav.sesion = (1,name_enter,password_enter)
 
                 loginas_label = tk.Label(newwindow2, text = "Logged in as Principal",width = 100,justify = tk.LEFT,anchor = tk.NW,
                          font = ("PT Sans",20,"bold"),bg = '#FDD4B8')
@@ -614,16 +601,7 @@ def logincommand(name_enter,password_enter):
                 
                 # Method for adding new teacher
                 def addnew():
-                    if enfocar_si_abierta('alta_docente'):
-                        return
-                    newwindow6 = tk.Toplevel(newwindow2)
-                    registrar('alta_docente',newwindow6,newwindow2)
-                    ALTA = 'alta_docente'
-
-                    newwindow6.geometry("1000x1000")
-                    newwindow6.configure(bg = '#583830')
-
-                    newwindow6.title("S.V.D.D. School")
+                    newwindow6 = nav.pantalla("1000x730")
 
                     loginas_label = tk.Label(newwindow6, text = "Logged in as Principal",width = 100,justify = tk.LEFT,anchor = tk.NW,
                          font = ("PT Sans",20,"bold"),bg = '#FDD4B8')
@@ -712,7 +690,7 @@ def logincommand(name_enter,password_enter):
                     photo = Heads("Photo:",10,600,70)
                     photo1 = fotos.SelectorFoto(newwindow6,720,70,850,235)
                     
-                    back = tk.Button(newwindow6,text = "Back",command = lambda:cerrar(ALTA),anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
+                    back = tk.Button(newwindow6,text = "Back",command = volver_al_panel,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",10,"bold"),justify = tk.LEFT)
                     back.place(x = 10, y = 640)
                     enter1 = tk.Button(newwindow6,text = "Enter",command = lambda:added(name1.ret(),lname1.ret(),fname1.ret(),mname1.ret(),dob1.ret(),bplace1.ret(),nation1.ret(),relig1.ret(),caste1.ret(),addr1.get("1.0","end-1c"),mno1.ret(),adno1.ret(),trno1.ret(),ctfc1.ret(),staught1.ret(),taught1.get("1.0","end-1c"),photo1,username1.ret(),password1.ret()),
@@ -722,13 +700,7 @@ def logincommand(name_enter,password_enter):
 
                 # Method for editing teacher information
                 def eedit1():
-                    if enfocar_si_abierta('editar_docente'):
-                        return
-                    newwindow4 = tk.Toplevel(newwindow2)
-                    registrar('editar_docente',newwindow4,newwindow2)
-                    newwindow4.geometry('700x800')
-                    newwindow4.configure(bg = '#583830')
-                    newwindow4.title("S.V.D.D. School")
+                    newwindow4 = nav.pantalla("700x800")
                     loginas_label = tk.Label(newwindow4, text = "Logged in as Principal",width = 100,justify = tk.LEFT,anchor = tk.NW,
                              font = ("PT Sans",20,"bold"),bg = '#FDD4B8')
                     loginas_label.place(x = 0,y = 0)
@@ -773,7 +745,7 @@ def logincommand(name_enter,password_enter):
                             x.place(x = 200,y = 250)
                             y = tk.Text(newwindow4,width = 40,height = 4,font = ("Cambria",14))
                             y.place(x = 200, y = 300)
-                            back = tk.Button(newwindow4,text = "Back",command = lambda:cerrar('editar_docente'),anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
+                            back = tk.Button(newwindow4,text = "Back",command = volver_al_panel,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",14,"bold"),justify = tk.LEFT)
                             back.place(x = 550, y = 450)
                             dict1 = {"First Name":"name","Last Name":"lname","Middle Name":"fname","Mother's Name":"mname","Date of Birth":"dob",
@@ -809,6 +781,10 @@ def logincommand(name_enter,password_enter):
                     m = tk.Button(newwindow4,text = "Enter",command = getElement,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",14,"bold"),justify = tk.LEFT)
                     m.place(x = 200,y = 80)
+                    # Sin ventana propia ya no hay X: Back debe existir desde el inicio, no solo tras elegir un campo
+                    back = tk.Button(newwindow4,text = "Back",command = volver_al_panel,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
+                                 font = ("Cambria",14,"bold"),justify = tk.LEFT)
+                    back.place(x = 550, y = 450)
                 
                 # Edit teacher info button
                 edit1 = tk.Button(newwindow2,text = 'Edit Teacher Info',anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
@@ -827,13 +803,7 @@ def logincommand(name_enter,password_enter):
 
                 # Method for editing personal information
                 def eedit2():
-                    if enfocar_si_abierta('editar_personal'):
-                        return
-                    newwindow5 = tk.Toplevel(newwindow2)
-                    registrar('editar_personal',newwindow5,newwindow2)
-                    newwindow5.geometry('700x800')
-                    newwindow5.configure(bg = '#583830')
-                    newwindow5.title("S.V.D.D. School")
+                    newwindow5 = nav.pantalla("700x800")
                     loginas_label = tk.Label(newwindow5, text = "Logged in as Principal",width = 100,justify = tk.LEFT,anchor = tk.NW,
                              font = ("PT Sans",20,"bold"),bg = '#FDD4B8')
                     loginas_label.place(x = 0,y = 0)
@@ -878,7 +848,7 @@ def logincommand(name_enter,password_enter):
                             x.place(x = 200,y = 250)
                             y = tk.Text(newwindow5,width = 40,height = 4,font = ("Cambria",14))
                             y.place(x = 200, y = 300)
-                            back = tk.Button(newwindow5,text = "Back",command = lambda:cerrar('editar_personal'),anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
+                            back = tk.Button(newwindow5,text = "Back",command = volver_al_panel,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",14,"bold"),justify = tk.LEFT)
                             back.place(x = 550, y = 450)
                             dict2 = {"First Name":"name","Last Name":"lname","Middle Name":"fname","Mother's Name":"mname","Date of Birth":"dob",
@@ -918,6 +888,10 @@ def logincommand(name_enter,password_enter):
                     m = tk.Button(newwindow5,text = "Enter",command = getElement1,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",14,"bold"),justify = tk.LEFT)
                     m.place(x = 200,y = 80)
+                    # Sin ventana propia ya no hay X: Back debe existir desde el inicio, no solo tras elegir un campo
+                    back = tk.Button(newwindow5,text = "Back",command = volver_al_panel,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
+                                 font = ("Cambria",14,"bold"),justify = tk.LEFT)
+                    back.place(x = 550, y = 450)
                     
                 # Editing personal information button
                 edit1 = tk.Button(newwindow2,text = 'Edit Personal Info',anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
@@ -927,5 +901,6 @@ def logincommand(name_enter,password_enter):
             else:
                 messagebox.showerror('Incorrect Password','Your Username or Password was Incorrect.Try Again') 
 
+mostrar_login()
 window.mainloop() 
 BaseDatos.cerrar()      
