@@ -31,44 +31,44 @@ F_LOGIN = ("Helvetica", 14, "bold")
 F_RADIO = ("Helvetica", 12, "bold")
 
 ROLES = {1: "principal", 2: "teacher", 3: "student"}
-NOMBRE_ROL = {"principal": "Principal", "teacher": "Teacher", "student": "Student"}
+NOMBRE_ROL = {"principal": "Director", "teacher": "Docente", "student": "Alumno"}
 LARGO = "largo"  # campo de varias líneas
 
 # Filas de campos: (etiqueta, columna[, LARGO]). Las tres primeras filas van al lado de la foto.
 PERSONALES = [
-    [("First Name:", "name"), ("Last Name:", "lname")],
-    [("Middle Name:", "fname"), ("Mother's Name:", "mname")],
-    [("Date of Birth:", "dob"), ("Birth Place:", "bplace")],
+    [("Nombre:", "name"), ("Apellido:", "lname")],
+    [("Segundo nombre:", "fname"), ("Nombre de la madre:", "mname")],
+    [("Fecha de nacimiento:", "dob"), ("Lugar de nacimiento:", "bplace")],
 ]
 CAMPOS = {
     "student": PERSONALES + [
-        [("Nationality:", "nation"), ("Religion:", "relig"), ("Caste:", "caste")],
-        [("Address:", "addr", LARGO)],
-        [("Mobile No.:", "mno"), ("Height:", "hei"), ("Weight:", "wei")],
-        [("Aadhaar Card No.:", "adno"), ("General Registration No.:", "gno")],
-        [("Date of Admission in School:", "doa"), ("Standard:", "std"), ("Div:", "div")],
-        [("Class Teacher's Name:", "ctname"), ("House Colour:", "hcolor"), ("Roll No.:", "rno")],
-        [("Teacher's Remarks:", "trem", LARGO)],
+        [("Nacionalidad:", "nation"), ("Religión:", "relig"), ("Casta:", "caste")],
+        [("Dirección:", "addr", LARGO)],
+        [("Celular:", "mno"), ("Estatura:", "hei"), ("Peso:", "wei")],
+        [("N.° de Aadhaar:", "adno"), ("N.° de registro general:", "gno")],
+        [("Fecha de ingreso al colegio:", "doa"), ("Grado:", "std"), ("Sección:", "div")],
+        [("Tutor(a) del aula:", "ctname"), ("Color de casa:", "hcolor"), ("N.° de lista:", "rno")],
+        [("Observaciones del docente:", "trem", LARGO)],
     ],
     "teacher": PERSONALES + [
-        [("Nationality:", "nation"), ("Religion:", "relig"), ("Caste:", "caste")],
-        [("Address:", "addr", LARGO)],
-        [("Mobile No.:", "mno"), ("Aadhaar Card No.:", "adno")],
-        [("Teacher's Registration No.:", "trno"), ("Class Teacher for Class:", "ctfc")],
-        [("Subjects Taught:", "staught")],
-        [("Teacher For:", "tfor", LARGO)],
+        [("Nacionalidad:", "nation"), ("Religión:", "relig"), ("Casta:", "caste")],
+        [("Dirección:", "addr", LARGO)],
+        [("Celular:", "mno"), ("N.° de Aadhaar:", "adno")],
+        [("N.° de registro docente:", "trno"), ("Tutor(a) del aula:", "ctfc")],
+        [("Cursos que dicta:", "staught")],
+        [("Aulas a cargo:", "tfor", LARGO)],
     ],
 }
-CAMPOS["principal"] = [[("Position:", "pos") if c[1] == "ctfc" else c for c in fila] for fila in CAMPOS["teacher"]]
+CAMPOS["principal"] = [[("Cargo:", "pos") if c[1] == "ctfc" else c for c in fila] for fila in CAMPOS["teacher"]]
 
 # Formularios de edición: qué tabla, cómo se identifica el registro y qué campos se pueden cambiar.
 EDICIONES = {
     "student": dict(tabla="StudentData", clave="gno", rol="teacher",
-                    nombre="Enter Student's First Name:", registro="Enter Student's Gen. Reg. No.:"),
+                    nombre="Nombre del alumno:", registro="N.° de registro general:"),
     "teacher": dict(tabla="TeacherData", clave="trno", rol="principal",
-                    nombre="Enter Teacher's First Name:", registro="Enter Teacher's Reg. No.:"),
+                    nombre="Nombre del docente:", registro="N.° de registro docente:"),
     "personal": dict(tabla="PrincipalData", clave="trno", rol="principal",
-                     nombre="Enter Your First Name:", registro="Enter Your Reg. No.:"),
+                     nombre="Tu nombre:", registro="Tu N.° de registro:"),
 }
 for _tipo, _conf in EDICIONES.items():
     _campos = CAMPOS["student" if _tipo == "student" else ("principal" if _tipo == "personal" else "teacher")]
@@ -131,7 +131,7 @@ class Aplicacion:
         p = self.nav.pantalla(bg=FONDO_LOGIN)
         p.columnconfigure((0, 1, 2), weight=1)
         p.rowconfigure((0, 5), weight=1)
-        for fila, texto in ((1, "Username :"), (2, "Password :")):
+        for fila, texto in ((1, "Usuario :"), (2, "Contraseña :")):
             tk.Label(p, text=texto, font=F_LOGIN, fg=TEXTO, bg=VALOR).grid(row=fila, column=0, sticky="e", padx=(30, 8), pady=10)
         self.usuario = tk.Entry(p, width=20, font=("Helvetica", 14))
         self.clave = tk.Entry(p, width=20, font=("Helvetica", 14), show="*")
@@ -139,10 +139,10 @@ class Aplicacion:
         self.clave.grid(row=2, column=1, columnspan=2, sticky="ew", padx=(0, 30))
         radios = tk.Frame(p, bg=FONDO_LOGIN)
         radios.grid(row=3, column=0, columnspan=3, pady=8)
-        for valor, texto in ((1, "Principal"), (2, "Teacher"), (3, "Student")):
+        for valor, texto in ((1, "Director"), (2, "Docente"), (3, "Alumno")):
             tk.Radiobutton(radios, text=texto, variable=self.rol, value=valor, font=F_RADIO, bg=FONDO_LOGIN,
                            fg=TEXTO, activebackground=FONDO_LOGIN).pack(side="left", padx=10)
-        tk.Button(p, text="LOG IN", width=20, font=F_LOGIN, bg=ETIQUETA, activebackground=VALOR,
+        tk.Button(p, text="INGRESAR", width=20, font=F_LOGIN, bg=ETIQUETA, activebackground=VALOR,
                   command=self.iniciar_sesion).grid(row=4, column=0, columnspan=3, pady=(6, 0))
         for e in (self.usuario, self.clave):
             e.bind("<Return>", lambda _e: self.iniciar_sesion())
@@ -152,11 +152,11 @@ class Aplicacion:
 
     def iniciar_sesion(self):
         if self.rol.get() not in ROLES:
-            messagebox.showerror('Select a role', 'Choose Principal, Teacher or Student before logging in.')
+            messagebox.showerror('Elige un rol', 'Marca Director, Docente o Alumno antes de ingresar.')
             return
         usuario, clave = self.usuario.get(), self.clave.get()
         if self.leer_sesion(self.rol.get(), usuario, clave) is None:
-            messagebox.showerror('Incorrect Password', 'Your Username or Password was Incorrect.Try Again')
+            messagebox.showerror('Datos incorrectos', 'El usuario o la contraseña no son correctos. Inténtalo de nuevo.')
             return
         self.nav.sesion = (self.rol.get(), usuario, clave)
         self.mostrar_panel()
@@ -176,7 +176,7 @@ class Aplicacion:
     # --- panel de datos -----------------------------------------------------
 
     def encabezado(self, p, rol):
-        tk.Label(p, text=f"Logged in as {NOMBRE_ROL[rol]}", font=F_TITULO, bg=VALOR, anchor="w",
+        tk.Label(p, text=f"Sesión iniciada como {NOMBRE_ROL[rol]}", font=F_TITULO, bg=VALOR, anchor="w",
                  padx=6).grid(row=0, column=0, sticky="ew")
 
     def mostrar_panel(self):
@@ -216,14 +216,14 @@ class Aplicacion:
             fotos.mostrar(foto, fila["photo_blob"], fotos.TAMANO_PANEL)
         filas_de_campos(cuerpo, CAMPOS[rol][3:], valor, desde=1)
 
-        botones = [("Back", self.cerrar_sesion)]
+        botones = [("Cerrar sesión", self.cerrar_sesion)]
         if rol == "teacher":
-            botones += [("Add New Student", lambda: self.mostrar_alta("student")),
-                        ("Edit Student Info", lambda: self.mostrar_edicion("student"))]
+            botones += [("Nuevo alumno", lambda: self.mostrar_alta("student")),
+                        ("Editar alumno", lambda: self.mostrar_edicion("student"))]
         if rol == "principal":
-            botones += [("Add New Teacher", lambda: self.mostrar_alta("teacher")),
-                        ("Edit Personal Info", lambda: self.mostrar_edicion("personal")),
-                        ("Edit Teacher Info", lambda: self.mostrar_edicion("teacher"))]
+            botones += [("Nuevo docente", lambda: self.mostrar_alta("teacher")),
+                        ("Editar mis datos", lambda: self.mostrar_edicion("personal")),
+                        ("Editar docente", lambda: self.mostrar_edicion("teacher"))]
         self.barra_botones(p, botones)
         self.nav.ajustar(minimo=(640, 0))
 
@@ -260,10 +260,10 @@ class Aplicacion:
         lateral = tk.Frame(arriba, bg=FONDO)
         lateral.grid(row=0, column=1, sticky="n", padx=(14, 0))
         selector = fotos.SelectorFoto(lateral)
-        etiqueta(lateral, "Photo:").grid(row=0, column=0, sticky="w", pady=5)
+        etiqueta(lateral, "Foto:").grid(row=0, column=0, sticky="w", pady=5)
         selector.boton.grid(row=0, column=1, sticky="w", padx=4)
         cuenta = {}
-        for i, (texto, clave) in enumerate((("Username:", "username"), ("Password:", "password")), start=1):
+        for i, (texto, clave) in enumerate((("Usuario:", "username"), ("Contraseña:", "password")), start=1):
             etiqueta(lateral, texto).grid(row=i, column=0, sticky="w", pady=5)
             cuenta[clave] = tk.Entry(lateral, width=15, font=F_VALOR, fg=TEXTO, bg=VALOR)
             cuenta[clave].grid(row=i, column=1, sticky="ew", padx=4)
@@ -286,10 +286,10 @@ class Aplicacion:
             except BaseDeDatosOcupada as e:
                 messagebox.showerror("Base de datos ocupada", str(e), parent=p)
                 return
-            quien = "Student" if tipo == "student" else "Teacher"
-            messagebox.showinfo("Successful!", f"New {quien} Details Added Successfully", parent=p)
+            quien = "alumno" if tipo == "student" else "docente"
+            messagebox.showinfo("Registro guardado", f"Se registraron los datos del nuevo {quien}.", parent=p)
 
-        self.barra_botones(p, [("Back", self.mostrar_panel), ("Enter", guardar)])
+        self.barra_botones(p, [("Volver", self.mostrar_panel), ("Guardar", guardar)])
         self.nav.ajustar(minimo=(760, 0))
 
     # --- edición de un campo -------------------------------------------------
@@ -313,7 +313,7 @@ class Aplicacion:
         derecha = tk.Frame(cuerpo, bg=FONDO)
         derecha.grid(row=0, column=1, sticky="nsew", padx=(14, 0))
         derecha.columnconfigure(1, weight=1)
-        boton(derecha, "Enter", lambda: elegir(), F_ETIQUETA).grid(row=0, column=0, sticky="w")
+        boton(derecha, "Elegir campo", lambda: elegir(), F_ETIQUETA).grid(row=0, column=0, sticky="w")
         # Los campos se crean una sola vez; el original apilaba widgets nuevos en cada Enter.
         detalle = tk.Frame(derecha, bg=FONDO)
         detalle.columnconfigure(1, weight=1)
@@ -326,13 +326,13 @@ class Aplicacion:
         tk.Label(detalle, textvariable=elegido, font=F_ETIQUETA, fg=TEXTO, bg=ETIQUETA).grid(row=2, column=0, sticky="w", pady=6)
         nuevo = tk.Text(detalle, width=30, height=4, font=F_VALOR, wrap="word")
         nuevo.grid(row=3, column=0, columnspan=2, sticky="ew")
-        actualizar_btn = boton(derecha, "UPDATE", lambda: actualizar(), F_ETIQUETA)
+        actualizar_btn = boton(derecha, "Actualizar", lambda: actualizar(), F_ETIQUETA)
         estado = {"columna": None}
 
         def elegir():
             seleccion = lista.curselection()
             if not seleccion:
-                messagebox.showerror("Error", "Please select an option", parent=p)
+                messagebox.showerror("Falta elegir", "Selecciona en la lista el campo que quieres cambiar.", parent=p)
                 return
             texto, estado["columna"] = conf["opciones"][seleccion[0]]
             elegido.set(texto)
@@ -355,10 +355,10 @@ class Aplicacion:
                 messagebox.showerror("Base de datos ocupada", str(e), parent=p)
                 return
             if filas == 0:
-                messagebox.showerror("Not found", "No record matches that name and registration number.", parent=p)
+                messagebox.showerror("No encontrado", "Ningún registro coincide con ese nombre y número de registro.", parent=p)
                 return
-            messagebox.showinfo('Updated', 'Updated Successfully', parent=p)
+            messagebox.showinfo('Actualizado', 'El dato se actualizó correctamente.', parent=p)
 
-        self.barra_botones(p, [("Back", self.mostrar_panel)])
+        self.barra_botones(p, [("Volver", self.mostrar_panel)])
         self.nav.ajustar(minimo=(640, 0))
 

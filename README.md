@@ -2,13 +2,13 @@
 
 Sistema de gestión escolar en **Python + Tkinter + SQLite**, usado como proyecto del curso **Evolución y Mantenimiento de Software (2026-II)**. Parte del proyecto abierto [rushgala27/School-Management-System](https://github.com/rushgala27/School-Management-System) (licencia MIT) y registra, versión por versión, los requerimientos de mantenimiento aplicados.
 
-- Login con tres roles: **Principal**, **Teacher** y **Student**.
+- Interfaz en español, con login para tres roles: **Director**, **Docente** y **Alumno**.
 - El director ve sus datos, edita su información, da de alta docentes y edita sus datos.
 - El docente ve sus datos, da de alta alumnos y edita sus datos.
 - El alumno ve sus datos.
 - Base de datos SQLite con 3 tablas: `StudentData`, `TeacherData` y `PrincipalData`.
 
-![Panel del director](docs/capturas/v4/r02_panel_natural.png)
+![Panel del director](docs/capturas/v4.1/panel_natural.png)
 
 ## Cómo ejecutarlo
 
@@ -29,9 +29,9 @@ En Windows también se puede descargar el `.exe` de la sección **Releases** y e
 
 | Rol | Usuario | Contraseña |
 |---|---|---|
-| Principal | `RajanUp12` | `RUpadhyay123` |
-| Teacher | `Darshi999` | `darshik@26` |
-| Student | `Rushabh123` | `12345678` |
+| Director | `RajanUp12` | `RUpadhyay123` |
+| Docente | `Darshi999` | `darshik@26` |
+| Alumno | `Rushabh123` | `12345678` |
 
 ## Versiones
 
@@ -43,8 +43,9 @@ Cada versión es una etiqueta de Git, con un commit por requerimiento. El detall
 | `v2.0` | R01 Validación de campos numéricos · R02 Navegación estable entre paneles · R03 Carga y vista previa de foto | Preventivo · Correctivo · Perfectivo |
 | `v3.0` | Clasificación del mantenimiento según la intención (ISO/IEC 14764) | — |
 | `v4.0` | R01 Navegación de ventana única · R02 Diseño responsivo (grid con pesos) · R03 Conexión única a SQLite (Singleton + WAL) | Correctiva · Perfectiva · Preventiva |
+| `v4.1` | Interfaz en español | Perfectivo |
 
-Para ver el sistema tal como estaba en una versión: `git checkout v2.0` (o `v1.0`, `v3.0`, `v4.0`).
+Para ver el sistema tal como estaba en una versión: `git checkout v2.0` (o `v1.0`, `v3.0`, `v4.0`, `v4.1`). Hasta la v4.0 la interfaz estaba en inglés, como en el original.
 
 ## Estructura
 
@@ -72,5 +73,5 @@ python -m unittest -v
 ## Créditos y licencia
 
 Proyecto original: **rushgala27** — [School-Management-System](https://github.com/rushgala27/School-Management-System). Las capturas originales están en `images/`.
-Mantenimiento v2.0–v4.0: **Jerson Chura** (curso de Evolución y Mantenimiento de Software, 2026-II).
+Mantenimiento v2.0–v4.1: **Jerson Chura** (curso de Evolución y Mantenimiento de Software, 2026-II).
 Licencia MIT (ver `LICENSE`).

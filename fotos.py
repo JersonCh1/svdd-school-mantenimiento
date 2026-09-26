@@ -49,20 +49,20 @@ def mostrar(label, datos, tamano):
 
 
 class SelectorFoto:
-    """Botón 'Choose Photo...' + miniatura, para los formularios de alta.
+    """Botón 'Elegir foto...' + miniatura, para los formularios de alta.
     Quien lo usa decide dónde ubicar .boton y .vista."""
 
     def __init__(self, padre):
         self.padre = padre
         self.datos = None
         self.nombre = ""
-        self.boton = tk.Button(padre, text="Choose Photo...", command=self.elegir,
+        self.boton = tk.Button(padre, text="Elegir foto...", command=self.elegir,
                                fg='#18120F', bg='#C7A196', font=("Cambria", 10, "bold"))
-        self.vista = tk.Label(padre, text="No photo", fg='#18120F', bg='#FDD4B8',
+        self.vista = tk.Label(padre, text="Sin foto", fg='#18120F', bg='#FDD4B8',
                               width=16, height=8)
 
     def elegir(self):
-        ruta = filedialog.askopenfilename(parent=self.padre, title="Choose photo", filetypes=TIPOS)
+        ruta = filedialog.askopenfilename(parent=self.padre, title="Elegir foto", filetypes=TIPOS)
         if not ruta:
             return
         try:

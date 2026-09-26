@@ -9,8 +9,8 @@ dos capas:
 import tkinter as tk
 
 LONGITUDES = {
-    "mno": (10, "Mobile No.", "10 dígitos"),
-    "adno": (12, "Aadhaar Card No.", "12 dígitos"),
+    "mno": (10, "El celular", "10 dígitos"),
+    "adno": (12, "El N.° de Aadhaar", "12 dígitos"),
 }
 
 

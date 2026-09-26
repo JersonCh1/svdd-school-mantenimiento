@@ -135,3 +135,22 @@ Requerimientos nuevos. Cada uno lleva el **tipo de mantenimiento** (clasificaci�
 | R01 | Navegación de ventana única | Basada en la intención | Correctiva |
 | R02 | Diseño responsivo del panel de datos | Basada en la intención | Perfectiva |
 | R03 | Centralización de la conexión a SQLite | Basada en la intención | Preventiva |
+
+---
+
+## Versión 4.1 — etiqueta `v4.1`
+
+### Interfaz en español
+
+- **Descripción:** Toda la interfaz del sistema original estaba en inglés (login, paneles, botones, formularios y mensajes). Se traduce al español: roles *Director / Docente / Alumno*; botones *Ingresar, Cerrar sesión, Nuevo docente, Editar mis datos, Guardar, Volver, Actualizar*; etiquetas de todos los campos y todos los mensajes de error y confirmación.
+- **Prioridad:** Media
+- **Tipo de mantenimiento:** Perfectivo — mejora la usabilidad para usuarios hispanohablantes; no corrige una falla.
+- **Observaciones:**
+  - Los textos en español son más largos ("Fecha de nacimiento:" frente a "Date of Birth:"). Con el diseño original en `place(x, y)` se habrían encimado; con el `grid` de la v4.0 la ventana creció sola (panel del director de 760 a 942 px de ancho) y la prueba automática confirma que ninguna etiqueta se corta ni se solapa.
+  - Los mensajes de validación de la v2.0 mezclaban idiomas ("Mobile No. solo admite números"); ahora son frases completas en español ("El celular solo admite números").
+  - Los datos de ejemplo de la base (nacionalidad, religión, direcciones en Mumbai) vienen del proyecto original y se dejaron tal cual: son datos, no parte de la interfaz.
+- **Evidencia:**
+  ![Login](capturas/v4.1/login.png)
+  ![Panel del director](capturas/v4.1/panel_natural.png)
+  ![Alta de docente](capturas/v4.1/alta_docente.png)
+  ![Editar docente](capturas/v4.1/editar_docente.png)
