@@ -1,13 +1,12 @@
 import tkinter as tk
 from tkinter import messagebox
-import sqlite3
 from validacion import configurar_numerico, error_numerico
+from db import BaseDatos, BaseDeDatosOcupada
 from migraciones import migrar
 import fotos
 from ventanas import abrir_panel, cerrar, enfocar_si_abierta, registrar
-con = sqlite3.connect("testdata.db")
-cur = con.cursor()
-migrar(con)
+db = BaseDatos()
+migrar(db.con)
 
 window = tk.Tk()
 window.geometry("450x300")
@@ -60,21 +59,8 @@ def logincommand(name_enter,password_enter):
             return
         # For student login
         if(radio.get()==3):
-            cur.execute("SELECT username FROM StudentData")
-            a = cur.fetchall()
-            count=0
-            for i in range(0,len(a)):
-                if(a[i][0]==name_enter):
-                    count = 0
-                    break
-                count=count+1
-            # Checking if the username exists
-            if(count!=0):
-                messagebox.showerror('Incorrect Password','Your Username or Password was Incorrect.Try Again')
-                return
-            cur.execute("SELECT password FROM StudentData WHERE username='"+name_enter+"'")
-            # Checking if the password is correct
-            if(password_enter==cur.fetchone()[0]):
+            sesion = db.autenticar("StudentData",name_enter,password_enter)
+            if(sesion is not None):
                 newwindow = tk.Toplevel(window)
 
                 newwindow.geometry("800x700")
@@ -107,14 +93,14 @@ def logincommand(name_enter,password_enter):
                         self.x = x
                         self.y = y
         
-                        cur.execute("SELECT " + self.text + " FROM StudentData WHERE username='"+name_enter+"' AND password='"+password_enter+"'")
+                        valor = sesion[self.text]
                         self.text_var = tk.StringVar()
-                        self.text_var.set(cur.fetchone())
+                        self.text_var.set("" if valor is None else valor)
                         if(self.text=='photo'):
                             self.label = tk.Label(newwindow,textvariable = self.text_var,width = self.width,height = 9,
                                   fg = '#18120F',bg = '#FDD4B8')
                             self.label.place(x = self.x,y = self.y)
-                            blob = cur.execute("SELECT photo_blob FROM StudentData WHERE username=? AND password=?",(name_enter,password_enter)).fetchone()[0]
+                            blob = sesion["photo_blob"]
                             if blob:
                                 fotos.mostrar(self.label,blob,fotos.TAMANO_PANEL)
                         elif(self.text=='addr'):
@@ -191,19 +177,8 @@ def logincommand(name_enter,password_enter):
 
         # For Teacher login
         if(radio.get()==2):
-            cur.execute("SELECT username FROM TeacherData")
-            a = cur.fetchall()
-            count=0
-            for i in range(0,len(a)):
-                if(a[i][0]==name_enter):
-                    count = 0
-                    break
-                count=count+1
-            if(count!=0):
-                messagebox.showerror('Incorrect Password','Your Username or Password was Incorrect.Try Again')
-                return
-            cur.execute("SELECT password FROM TeacherData WHERE username='"+name_enter+"'")
-            if(password_enter==cur.fetchone()[0]):
+            sesion = db.autenticar("TeacherData",name_enter,password_enter)
+            if(sesion is not None):
                 newwindow1 = tk.Toplevel(window)
                 newwindow1.geometry("770x700")
                 newwindow1.configure(bg = '#583830')
@@ -234,14 +209,14 @@ def logincommand(name_enter,password_enter):
                         self.x = x
                         self.y = y
         
-                        cur.execute("SELECT " + self.text + " FROM TeacherData WHERE username='"+name_enter+"' AND password='"+password_enter+"'")
+                        valor = sesion[self.text]
                         self.text_var = tk.StringVar()
-                        self.text_var.set(cur.fetchone())
+                        self.text_var.set("" if valor is None else valor)
                         if(self.text=='photo'):
                             self.label = tk.Label(newwindow1,textvariable = self.text_var,width = self.width,height = 9,
                                   fg = '#18120F',bg = '#FDD4B8')
                             self.label.place(x = self.x,y = self.y)
-                            blob = cur.execute("SELECT photo_blob FROM TeacherData WHERE username=? AND password=?",(name_enter,password_enter)).fetchone()[0]
+                            blob = sesion["photo_blob"]
                             if blob:
                                 fotos.mostrar(self.label,blob,fotos.TAMANO_PANEL)
                         elif(self.text=='addr'):
@@ -321,10 +296,13 @@ def logincommand(name_enter,password_enter):
                             if error:
                                 messagebox.showerror("Dato no válido",error,parent = newwindow6)
                                 return
-                        cur.execute("INSERT INTO StudentData(name,lname,fname,mname,dob,bplace,nation,relig,caste,addr,mno,hei,wei,adno,gno,doa,std,div,ctname,hcolor,rno,trem,photo,username,password,photo_blob) "
+                        try:
+                            db.escribir("INSERT INTO StudentData(name,lname,fname,mname,dob,bplace,nation,relig,caste,addr,mno,hei,wei,adno,gno,doa,std,div,ctname,hcolor,rno,trem,photo,username,password,photo_blob) "
                                     "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                                     (name1,lname1,fname1,mname1,dob1,bplace1,nation1,relig1,caste1,addr1,mno1,hei1,wei1,adno1,grno1,doa1,std1,div1,ctname1,hcolor1,rno1,ctsc1,photo1.nombre,username1,password1,photo1.datos))
-                        con.commit()
+                        except BaseDeDatosOcupada as e:
+                            messagebox.showerror("Base de datos ocupada",str(e),parent = newwindow6)
+                            return
                         messagebox.showinfo("Successful!","New Student Details Added Successfully")
 
                     class Heads:
@@ -489,9 +467,15 @@ def logincommand(name_enter,password_enter):
                                     messagebox.showerror("Dato no válido",error,parent = newwindow3)
                                     return
                                 upda_ent = upda_ent.strip() if b in ("mno","adno") else upda_ent
-                                cur.execute("UPDATE StudentData SET "+b+"='"+upda_ent+"' WHERE name='"+name_ent+"' AND gno='"+grno_ent+"'")
-                                con.commit()
-                                messagebox.showinfo('Updated','Updated Successfully')
+                                try:
+                                    filas = db.actualizar("StudentData",b,upda_ent,{"name":name_ent,"gno":grno_ent})
+                                except BaseDeDatosOcupada as e:
+                                    messagebox.showerror("Base de datos ocupada",str(e),parent = newwindow3)
+                                    return
+                                if(filas==0):
+                                    messagebox.showerror("Not found","No record matches that name and registration number.",parent = newwindow3)
+                                    return
+                                messagebox.showinfo('Updated','Updated Successfully',parent = newwindow3)
                             def getval(val):
                                 for key in dict1.keys():
                                     if key==val:
@@ -533,19 +517,8 @@ def logincommand(name_enter,password_enter):
         
         # For Principal login
         if(radio.get()==1):
-            cur.execute("SELECT username FROM PrincipalData")
-            a = cur.fetchall()
-            count=0
-            for i in range(0,len(a)):
-                if(a[i][0]==name_enter):
-                    count = 0
-                    break
-                count=count+1
-            if(count!=0):
-                messagebox.showerror('Incorrect Password','Your Username or Password was Incorrect.Try Again')
-                return
-            cur.execute("SELECT password FROM PrincipalData WHERE username='"+name_enter+"'")
-            if(password_enter==cur.fetchone()[0]):
+            sesion = db.autenticar("PrincipalData",name_enter,password_enter)
+            if(sesion is not None):
                 newwindow2 = tk.Toplevel(window)
                 newwindow2.geometry("770x700")
                 newwindow2.configure(bg = '#583830')
@@ -575,14 +548,14 @@ def logincommand(name_enter,password_enter):
                         self.x = x
                         self.y = y
         
-                        cur.execute("SELECT " + self.text + " FROM PrincipalData WHERE username='"+name_enter+"' AND password='"+password_enter+"'")
+                        valor = sesion[self.text]
                         self.text_var = tk.StringVar()
-                        self.text_var.set(cur.fetchone())
+                        self.text_var.set("" if valor is None else valor)
                         if(self.text=='photo'):
                             self.label = tk.Label(newwindow2,textvariable = self.text_var,width = self.width,height = 9,
                                   fg = '#18120F',bg = '#FDD4B8')
                             self.label.place(x = self.x,y = self.y)
-                            blob = cur.execute("SELECT photo_blob FROM PrincipalData WHERE username=? AND password=?",(name_enter,password_enter)).fetchone()[0]
+                            blob = sesion["photo_blob"]
                             if blob:
                                 fotos.mostrar(self.label,blob,fotos.TAMANO_PANEL)
                         elif(self.text=='addr'):
@@ -662,10 +635,13 @@ def logincommand(name_enter,password_enter):
                             if error:
                                 messagebox.showerror("Dato no válido",error,parent = newwindow6)
                                 return
-                        cur.execute("INSERT INTO TeacherData(name,lname,fname,mname,dob,bplace,nation,relig,caste,addr,mno,adno,trno,ctfc,staught,photo,username,password,tfor,photo_blob) "
+                        try:
+                            db.escribir("INSERT INTO TeacherData(name,lname,fname,mname,dob,bplace,nation,relig,caste,addr,mno,adno,trno,ctfc,staught,photo,username,password,tfor,photo_blob) "
                                     "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                                     (name1,lname1,fname1,mname1,dob1,bplace1,nation1,relig1,caste1,addr1,mno1,adno1,grno1,ctfc1,staught1,photo1.nombre,username1,password1,tfor1,photo1.datos))
-                        con.commit()
+                        except BaseDeDatosOcupada as e:
+                            messagebox.showerror("Base de datos ocupada",str(e),parent = newwindow6)
+                            return
                         messagebox.showinfo("Successful!","New Teacher Details Added Successfully")
 
                     class Heads:
@@ -802,7 +778,7 @@ def logincommand(name_enter,password_enter):
                             back.place(x = 550, y = 450)
                             dict1 = {"First Name":"name","Last Name":"lname","Middle Name":"fname","Mother's Name":"mname","Date of Birth":"dob",
                                 "Birth Place":"bplace","Nationality":"nation","Religion":"relig","Caste":"caste","Address":"addr",
-                                 "Mobile No.":"mno","Aadhaar Card No.":"adno","Teacher's Registration No.":"trno",
+                                 "Mobile No.":"mno","Aadhaar Card No.":"adno","Teacher's Registration No.":"trno","General Registration No.":"trno",
                                  "Class Teacher for Class":"ctfc","Subjects Taught":"staught","Teacher for":"tfor"}
                                        
                             if a.get() in dict1.keys():
@@ -814,9 +790,15 @@ def logincommand(name_enter,password_enter):
                                     messagebox.showerror("Dato no válido",error,parent = newwindow4)
                                     return
                                 upda_ent = upda_ent.strip() if b in ("mno","adno") else upda_ent
-                                cur.execute("UPDATE TeacherData SET "+b+"='"+upda_ent+"' WHERE name='"+name_ent+"' AND trno='"+grno_ent+"'")
-                                con.commit()
-                                messagebox.showinfo('Updated','Updated Successfully')
+                                try:
+                                    filas = db.actualizar("TeacherData",b,upda_ent,{"name":name_ent,"trno":grno_ent})
+                                except BaseDeDatosOcupada as e:
+                                    messagebox.showerror("Base de datos ocupada",str(e),parent = newwindow4)
+                                    return
+                                if(filas==0):
+                                    messagebox.showerror("Not found","No record matches that name and registration number.",parent = newwindow4)
+                                    return
+                                messagebox.showinfo('Updated','Updated Successfully',parent = newwindow4)
                             upda = tk.Button(newwindow4,text = 'UPDATE',command = lambda:update(b,ent1.get(),ent3.get(),y.get("1.0","end-1c")),
                                          anchor = tk.NW,fg = '#18120F',bg = '#C7A196',font = ("Cambria",14,"bold"),justify = tk.LEFT)
                             upda.place(x = 200,y = 450)
@@ -901,7 +883,7 @@ def logincommand(name_enter,password_enter):
                             back.place(x = 550, y = 450)
                             dict2 = {"First Name":"name","Last Name":"lname","Middle Name":"fname","Mother's Name":"mname","Date of Birth":"dob",
                                 "Birth Place":"bplace","Nationality":"nation","Religion":"relig","Caste":"caste","Address":"addr",
-                                 "Mobile No.":"mno","Aadhaar Card No.":"adno","Teacher's Registration No.":"trno",
+                                 "Mobile No.":"mno","Aadhaar Card No.":"adno","Teacher's Registration No.":"trno","General Registration No.":"trno",
                                  "Position":"pos","Subjects Taught":"staught","Teacher for":"tfor"}
                             
                             
@@ -915,9 +897,15 @@ def logincommand(name_enter,password_enter):
                                     messagebox.showerror("Dato no válido",error,parent = newwindow5)
                                     return
                                 upda_ent = upda_ent.strip() if b in ("mno","adno") else upda_ent
-                                cur.execute("UPDATE PrincipalData SET "+b+"='"+upda_ent+"' WHERE name='"+name_ent+"' AND trno='"+grno_ent+"'")
-                                con.commit()
-                                messagebox.showinfo('Updated','Updated Successfully')
+                                try:
+                                    filas = db.actualizar("PrincipalData",b,upda_ent,{"name":name_ent,"trno":grno_ent})
+                                except BaseDeDatosOcupada as e:
+                                    messagebox.showerror("Base de datos ocupada",str(e),parent = newwindow5)
+                                    return
+                                if(filas==0):
+                                    messagebox.showerror("Not found","No record matches that name and registration number.",parent = newwindow5)
+                                    return
+                                messagebox.showinfo('Updated','Updated Successfully',parent = newwindow5)
                                 
                             upda = tk.Button(newwindow5,text = 'UPDATE',command = lambda:update1(d,ent1.get(),ent3.get(),y.get("1.0","end-1c")),
                                          anchor = tk.NW,fg = '#18120F',bg = '#C7A196',font = ("Cambria",14,"bold"),justify = tk.LEFT)
@@ -940,4 +928,4 @@ def logincommand(name_enter,password_enter):
                 messagebox.showerror('Incorrect Password','Your Username or Password was Incorrect.Try Again') 
 
 window.mainloop() 
-con.close()      
+BaseDatos.cerrar()      
