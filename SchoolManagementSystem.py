@@ -3,6 +3,7 @@ from tkinter import messagebox
 import sqlite3
 from validacion import configurar_numerico, error_numerico
 from migraciones import migrar
+import fotos
 from ventanas import abrir_panel, cerrar, enfocar_si_abierta, registrar
 con = sqlite3.connect("testdata.db")
 cur = con.cursor()
@@ -113,6 +114,9 @@ def logincommand(name_enter,password_enter):
                             self.label = tk.Label(newwindow,textvariable = self.text_var,width = self.width,height = 9,
                                   fg = '#18120F',bg = '#FDD4B8')
                             self.label.place(x = self.x,y = self.y)
+                            blob = cur.execute("SELECT photo_blob FROM StudentData WHERE username=? AND password=?",(name_enter,password_enter)).fetchone()[0]
+                            if blob:
+                                fotos.mostrar(self.label,blob,fotos.TAMANO_PANEL)
                         elif(self.text=='addr'):
                             self.label = tk.Label(newwindow,textvariable = self.text_var,width = self.width,font = ("Cambria",14),
                                   justify = tk.LEFT,wraplength = 600,anchor = tk.NW,fg = '#18120F',bg = '#FDD4B8')
@@ -237,6 +241,9 @@ def logincommand(name_enter,password_enter):
                             self.label = tk.Label(newwindow1,textvariable = self.text_var,width = self.width,height = 9,
                                   fg = '#18120F',bg = '#FDD4B8')
                             self.label.place(x = self.x,y = self.y)
+                            blob = cur.execute("SELECT photo_blob FROM TeacherData WHERE username=? AND password=?",(name_enter,password_enter)).fetchone()[0]
+                            if blob:
+                                fotos.mostrar(self.label,blob,fotos.TAMANO_PANEL)
                         elif(self.text=='addr'):
                             self.label = tk.Label(newwindow1,textvariable = self.text_var,width = self.width,font = ("Cambria",14),
                                   justify = tk.LEFT,wraplength = 600,anchor = tk.NW,fg = '#18120F',bg = '#FDD4B8')
@@ -314,7 +321,9 @@ def logincommand(name_enter,password_enter):
                             if error:
                                 messagebox.showerror("Dato no válido",error,parent = newwindow6)
                                 return
-                        cur.execute("INSERT INTO StudentData VALUES('"+name1+"','"+lname1+"','"+fname1+"','"+mname1+"','"+dob1+"','"+bplace1+"','"+nation1+"','"+relig1+"','"+caste1+"','"+addr1+"','"+mno1+"','"+hei1+"','"+wei1+"','"+adno1+"','"+grno1+"','"+doa1+"','"+std1+"','"+div1+"','"+ctname1+"','"+hcolor1+"','"+rno1+"','"+ctsc1+"','"+photo1+"','"+username1+"','"+password1+"')")
+                        cur.execute("INSERT INTO StudentData(name,lname,fname,mname,dob,bplace,nation,relig,caste,addr,mno,hei,wei,adno,gno,doa,std,div,ctname,hcolor,rno,trem,photo,username,password,photo_blob) "
+                                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                                    (name1,lname1,fname1,mname1,dob1,bplace1,nation1,relig1,caste1,addr1,mno1,hei1,wei1,adno1,grno1,doa1,std1,div1,ctname1,hcolor1,rno1,ctsc1,photo1.nombre,username1,password1,photo1.datos))
                         con.commit()
                         messagebox.showinfo("Successful!","New Student Details Added Successfully")
 
@@ -396,11 +405,11 @@ def logincommand(name_enter,password_enter):
                     password = Heads("Password:",10,600,180)
                     password1 = Values(15,720,180)
                     photo = Heads("Photo:",10,600,70)
-                    photo1 = Values(15,720,70)
+                    photo1 = fotos.SelectorFoto(newwindow6,720,70,850,235)
                     back = tk.Button(newwindow6,text = "Back",command = lambda:cerrar(ALTA),anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",10,"bold"),justify = tk.LEFT)
                     back.place(x = 10, y = 680)
-                    enter1 = tk.Button(newwindow6,text = "Enter",command = lambda:added(name1.ret(),lname1.ret(),fname1.ret(),mname1.ret(),dob1.ret(),bplace1.ret(),nation1.ret(),relig1.ret(),caste1.ret(),addr1.get("1.0","end-1c"),mno1.ret(),hei1.ret(),wei1.ret(),adno1.ret(),grno1.ret(),doa1.ret(),std1.ret(),div1.ret(),ctname1.ret(),hcolor1.ret(),rno1.ret(),ctsc1.get("1.0","end-1c"),photo1.ret(),username1.ret(),password1.ret()),
+                    enter1 = tk.Button(newwindow6,text = "Enter",command = lambda:added(name1.ret(),lname1.ret(),fname1.ret(),mname1.ret(),dob1.ret(),bplace1.ret(),nation1.ret(),relig1.ret(),caste1.ret(),addr1.get("1.0","end-1c"),mno1.ret(),hei1.ret(),wei1.ret(),adno1.ret(),grno1.ret(),doa1.ret(),std1.ret(),div1.ret(),ctname1.ret(),hcolor1.ret(),rno1.ret(),ctsc1.get("1.0","end-1c"),photo1,username1.ret(),password1.ret()),
                                        anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",10,"bold"),justify = tk.LEFT)
                     enter1.place(x = 500, y = 680)
@@ -573,6 +582,9 @@ def logincommand(name_enter,password_enter):
                             self.label = tk.Label(newwindow2,textvariable = self.text_var,width = self.width,height = 9,
                                   fg = '#18120F',bg = '#FDD4B8')
                             self.label.place(x = self.x,y = self.y)
+                            blob = cur.execute("SELECT photo_blob FROM PrincipalData WHERE username=? AND password=?",(name_enter,password_enter)).fetchone()[0]
+                            if blob:
+                                fotos.mostrar(self.label,blob,fotos.TAMANO_PANEL)
                         elif(self.text=='addr'):
                             self.label = tk.Label(newwindow2,textvariable = self.text_var,width = self.width,font = ("Cambria",14),
                                   justify = tk.LEFT,wraplength = 600,anchor = tk.NW,fg = '#18120F',bg = '#FDD4B8')
@@ -650,7 +662,9 @@ def logincommand(name_enter,password_enter):
                             if error:
                                 messagebox.showerror("Dato no válido",error,parent = newwindow6)
                                 return
-                        cur.execute("INSERT INTO TeacherData VALUES('"+name1+"','"+lname1+"','"+fname1+"','"+mname1+"','"+dob1+"','"+bplace1+"','"+nation1+"','"+relig1+"','"+caste1+"','"+addr1+"','"+mno1+"','"+adno1+"','"+grno1+"','"+ctfc1+"','"+staught1+"','"+photo1+"','"+username1+"','"+password1+"','"+tfor1+"')")
+                        cur.execute("INSERT INTO TeacherData(name,lname,fname,mname,dob,bplace,nation,relig,caste,addr,mno,adno,trno,ctfc,staught,photo,username,password,tfor,photo_blob) "
+                                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                                    (name1,lname1,fname1,mname1,dob1,bplace1,nation1,relig1,caste1,addr1,mno1,adno1,grno1,ctfc1,staught1,photo1.nombre,username1,password1,tfor1,photo1.datos))
                         con.commit()
                         messagebox.showinfo("Successful!","New Teacher Details Added Successfully")
 
@@ -720,12 +734,12 @@ def logincommand(name_enter,password_enter):
                     password = Heads("Password:",10,600,180)
                     password1 = Values(15,720,180)
                     photo = Heads("Photo:",10,600,70)
-                    photo1 = Values(15,720,70)
+                    photo1 = fotos.SelectorFoto(newwindow6,720,70,850,235)
                     
                     back = tk.Button(newwindow6,text = "Back",command = lambda:cerrar(ALTA),anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",10,"bold"),justify = tk.LEFT)
                     back.place(x = 10, y = 640)
-                    enter1 = tk.Button(newwindow6,text = "Enter",command = lambda:added(name1.ret(),lname1.ret(),fname1.ret(),mname1.ret(),dob1.ret(),bplace1.ret(),nation1.ret(),relig1.ret(),caste1.ret(),addr1.get("1.0","end-1c"),mno1.ret(),adno1.ret(),trno1.ret(),ctfc1.ret(),staught1.ret(),taught1.get("1.0","end-1c"),photo1.ret(),username1.ret(),password1.ret()),
+                    enter1 = tk.Button(newwindow6,text = "Enter",command = lambda:added(name1.ret(),lname1.ret(),fname1.ret(),mname1.ret(),dob1.ret(),bplace1.ret(),nation1.ret(),relig1.ret(),caste1.ret(),addr1.get("1.0","end-1c"),mno1.ret(),adno1.ret(),trno1.ret(),ctfc1.ret(),staught1.ret(),taught1.get("1.0","end-1c"),photo1,username1.ret(),password1.ret()),
                                        anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",10,"bold"),justify = tk.LEFT)
                     enter1.place(x = 500, y = 640)

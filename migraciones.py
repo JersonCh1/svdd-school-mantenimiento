@@ -40,7 +40,25 @@ def v2_normalizar_numeros(con):
     return cambios
 
 
+def v2_columna_foto(con):
+    """v2.0 R03: columna BLOB para guardar la imagen real de la foto.
+
+    ALTER TABLE ... ADD COLUMN conserva todos los registros existentes; la
+    columna de texto 'photo' se mantiene (guarda el nombre del archivo).
+    """
+    agregadas = []
+    for tabla in TABLAS:
+        columnas = [fila[1] for fila in con.execute(f"PRAGMA table_info({tabla})")]
+        if "photo_blob" not in columnas:
+            con.execute(f"ALTER TABLE {tabla} ADD COLUMN photo_blob BLOB")
+            agregadas.append(tabla)
+    con.commit()
+    return agregadas
+
+
 def migrar(con):
+    for tabla in v2_columna_foto(con):
+        print(f"[migración v2] {tabla}: columna photo_blob agregada")
     cambios = v2_normalizar_numeros(con)
     for tabla, usuario, columna, antes, despues in cambios:
         print(f"[migración v2] {tabla}.{columna} ({usuario}): {antes!r} -> {despues!r}")
