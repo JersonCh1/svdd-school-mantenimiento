@@ -3,6 +3,7 @@ from tkinter import messagebox
 import sqlite3
 from validacion import configurar_numerico, error_numerico
 from migraciones import migrar
+from ventanas import abrir_panel, cerrar, enfocar_si_abierta, registrar
 con = sqlite3.connect("testdata.db")
 cur = con.cursor()
 migrar(con)
@@ -48,7 +49,14 @@ login_button = tk.Button(window,text = "LOG IN",width = 20,font=("Helvetica",14,
 login_button.place(x = 108,y = 210)
 
 
+def limpiar_login():
+    password_entry.delete(0,tk.END)
+    password_entry.focus_set()
+
 def logincommand(name_enter,password_enter):
+        if(radio.get()==0):
+            messagebox.showerror('Select a role','Choose Principal, Teacher or Student before logging in.')
+            return
         # For student login
         if(radio.get()==3):
             cur.execute("SELECT username FROM StudentData")
@@ -62,6 +70,7 @@ def logincommand(name_enter,password_enter):
             # Checking if the username exists
             if(count!=0):
                 messagebox.showerror('Incorrect Password','Your Username or Password was Incorrect.Try Again')
+                return
             cur.execute("SELECT password FROM StudentData WHERE username='"+name_enter+"'")
             # Checking if the password is correct
             if(password_enter==cur.fetchone()[0]):
@@ -71,6 +80,7 @@ def logincommand(name_enter,password_enter):
                 newwindow.configure(bg = '#583830')
 
                 newwindow.title("S.V.D.D. School")
+                cerrar_sesion = abrir_panel(window,newwindow,limpiar_login)
 
                 loginas_label = tk.Label(newwindow, text = "Logged in as Student",width = 100,justify = tk.LEFT,anchor = tk.NW,
                          font = ("PT Sans",20,"bold"),bg = '#FDD4B8')
@@ -167,10 +177,9 @@ def logincommand(name_enter,password_enter):
                 ctsc = Heads("Teacher's Remarks:",16,10,590)
                 ctsc1 = Values('trem',49,205,590)
                 # Back Button
-                back = tk.Button(newwindow,text = "Back",command = newwindow.destroy,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
+                back = tk.Button(newwindow,text = "Back",command = cerrar_sesion,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",10,"bold"),justify = tk.LEFT)
                 back.place(x = 10, y = 670)
-                newwindow.mainloop()
 
             # If password is incorrect
             else:
@@ -188,6 +197,7 @@ def logincommand(name_enter,password_enter):
                 count=count+1
             if(count!=0):
                 messagebox.showerror('Incorrect Password','Your Username or Password was Incorrect.Try Again')
+                return
             cur.execute("SELECT password FROM TeacherData WHERE username='"+name_enter+"'")
             if(password_enter==cur.fetchone()[0]):
                 newwindow1 = tk.Toplevel(window)
@@ -195,6 +205,7 @@ def logincommand(name_enter,password_enter):
                 newwindow1.configure(bg = '#583830')
 
                 newwindow1.title("S.V.D.D. School")
+                cerrar_sesion = abrir_panel(window,newwindow1,limpiar_login)
 
                 loginas_label = tk.Label(newwindow1, text = "Logged in as Teacher",width = 100,justify = tk.LEFT,anchor = tk.NW,
                          font = ("PT Sans",20,"bold"),bg = '#FDD4B8')
@@ -282,7 +293,11 @@ def logincommand(name_enter,password_enter):
                 
                 # Method for adding new student
                 def addnew():
+                    if enfocar_si_abierta('alta_alumno'):
+                        return
                     newwindow6 = tk.Toplevel(newwindow1)
+                    registrar('alta_alumno',newwindow6,newwindow1)
+                    ALTA = 'alta_alumno'
 
                     newwindow6.geometry("1000x1000")
                     newwindow6.configure(bg = '#583830')
@@ -382,18 +397,20 @@ def logincommand(name_enter,password_enter):
                     password1 = Values(15,720,180)
                     photo = Heads("Photo:",10,600,70)
                     photo1 = Values(15,720,70)
-                    back = tk.Button(newwindow6,text = "Back",command = newwindow6.destroy,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
+                    back = tk.Button(newwindow6,text = "Back",command = lambda:cerrar(ALTA),anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",10,"bold"),justify = tk.LEFT)
                     back.place(x = 10, y = 680)
                     enter1 = tk.Button(newwindow6,text = "Enter",command = lambda:added(name1.ret(),lname1.ret(),fname1.ret(),mname1.ret(),dob1.ret(),bplace1.ret(),nation1.ret(),relig1.ret(),caste1.ret(),addr1.get("1.0","end-1c"),mno1.ret(),hei1.ret(),wei1.ret(),adno1.ret(),grno1.ret(),doa1.ret(),std1.ret(),div1.ret(),ctname1.ret(),hcolor1.ret(),rno1.ret(),ctsc1.get("1.0","end-1c"),photo1.ret(),username1.ret(),password1.ret()),
                                        anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",10,"bold"),justify = tk.LEFT)
                     enter1.place(x = 500, y = 680)
-                    newwindow6.mainloop()
 
                 # Method for Editing Student Information  
                 def eedit():
+                    if enfocar_si_abierta('editar_alumno'):
+                        return
                     newwindow3 = tk.Toplevel(newwindow1)
+                    registrar('editar_alumno',newwindow3,newwindow1)
                     newwindow3.geometry('700x800')
                     newwindow3.configure(bg = '#583830')
                     newwindow3.title("S.V.D.D. School")
@@ -447,7 +464,7 @@ def logincommand(name_enter,password_enter):
                             x.place(x = 200,y = 250)
                             y = tk.Text(newwindow3,width = 40,height = 4,font = ("Cambria",14))
                             y.place(x = 200, y = 300)
-                            back = tk.Button(newwindow3,text = "Back",command = newwindow3.destroy,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
+                            back = tk.Button(newwindow3,text = "Back",command = lambda:cerrar('editar_alumno'),anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                   font = ("Cambria",14,"bold"),justify = tk.LEFT)
                             back.place(x = 550, y = 450)
                             dict1 = {"First Name":"name","Last Name":"lname","Middle Name":"fname","Mother's Name":"mname","Date of Birth":"dob",
@@ -485,7 +502,6 @@ def logincommand(name_enter,password_enter):
                                  font = ("Cambria",14,"bold"),justify = tk.LEFT)
                     m.place(x = 200,y = 80)
                     
-                    newwindow3.mainloop()
 
                 # Edit student info button
                 edit = tk.Button(newwindow1,text = 'Edit Student Info',anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
@@ -493,7 +509,7 @@ def logincommand(name_enter,password_enter):
                 edit.place(x = 588,y = 640)
                 
                 # Back button
-                back = tk.Button(newwindow1,text = "Back",command = newwindow1.destroy,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
+                back = tk.Button(newwindow1,text = "Back",command = cerrar_sesion,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",10,"bold"),justify = tk.LEFT)
                 back.place(x = 10, y = 640)
 
@@ -501,7 +517,6 @@ def logincommand(name_enter,password_enter):
                 new = tk.Button(newwindow1,text = "Add New Student",command = addnew,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",10,"bold"),justify = tk.LEFT)
                 new.place(x = 300, y = 640)
-                newwindow1.mainloop()
 
             # If password is incorrect
             else:
@@ -519,6 +534,7 @@ def logincommand(name_enter,password_enter):
                 count=count+1
             if(count!=0):
                 messagebox.showerror('Incorrect Password','Your Username or Password was Incorrect.Try Again')
+                return
             cur.execute("SELECT password FROM PrincipalData WHERE username='"+name_enter+"'")
             if(password_enter==cur.fetchone()[0]):
                 newwindow2 = tk.Toplevel(window)
@@ -526,6 +542,7 @@ def logincommand(name_enter,password_enter):
                 newwindow2.configure(bg = '#583830')
 
                 newwindow2.title("S.V.D.D. School")
+                cerrar_sesion = abrir_panel(window,newwindow2,limpiar_login)
 
                 loginas_label = tk.Label(newwindow2, text = "Logged in as Principal",width = 100,justify = tk.LEFT,anchor = tk.NW,
                          font = ("PT Sans",20,"bold"),bg = '#FDD4B8')
@@ -612,7 +629,11 @@ def logincommand(name_enter,password_enter):
                 
                 # Method for adding new teacher
                 def addnew():
+                    if enfocar_si_abierta('alta_docente'):
+                        return
                     newwindow6 = tk.Toplevel(newwindow2)
+                    registrar('alta_docente',newwindow6,newwindow2)
+                    ALTA = 'alta_docente'
 
                     newwindow6.geometry("1000x1000")
                     newwindow6.configure(bg = '#583830')
@@ -701,18 +722,20 @@ def logincommand(name_enter,password_enter):
                     photo = Heads("Photo:",10,600,70)
                     photo1 = Values(15,720,70)
                     
-                    back = tk.Button(newwindow6,text = "Back",command = newwindow6.destroy,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
+                    back = tk.Button(newwindow6,text = "Back",command = lambda:cerrar(ALTA),anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",10,"bold"),justify = tk.LEFT)
                     back.place(x = 10, y = 640)
                     enter1 = tk.Button(newwindow6,text = "Enter",command = lambda:added(name1.ret(),lname1.ret(),fname1.ret(),mname1.ret(),dob1.ret(),bplace1.ret(),nation1.ret(),relig1.ret(),caste1.ret(),addr1.get("1.0","end-1c"),mno1.ret(),adno1.ret(),trno1.ret(),ctfc1.ret(),staught1.ret(),taught1.get("1.0","end-1c"),photo1.ret(),username1.ret(),password1.ret()),
                                        anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",10,"bold"),justify = tk.LEFT)
                     enter1.place(x = 500, y = 640)
-                    newwindow6.mainloop()
 
                 # Method for editing teacher information
                 def eedit1():
+                    if enfocar_si_abierta('editar_docente'):
+                        return
                     newwindow4 = tk.Toplevel(newwindow2)
+                    registrar('editar_docente',newwindow4,newwindow2)
                     newwindow4.geometry('700x800')
                     newwindow4.configure(bg = '#583830')
                     newwindow4.title("S.V.D.D. School")
@@ -760,7 +783,7 @@ def logincommand(name_enter,password_enter):
                             x.place(x = 200,y = 250)
                             y = tk.Text(newwindow4,width = 40,height = 4,font = ("Cambria",14))
                             y.place(x = 200, y = 300)
-                            back = tk.Button(newwindow4,text = "Back",command = newwindow4.destroy,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
+                            back = tk.Button(newwindow4,text = "Back",command = lambda:cerrar('editar_docente'),anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",14,"bold"),justify = tk.LEFT)
                             back.place(x = 550, y = 450)
                             dict1 = {"First Name":"name","Last Name":"lname","Middle Name":"fname","Mother's Name":"mname","Date of Birth":"dob",
@@ -790,7 +813,6 @@ def logincommand(name_enter,password_enter):
                     m = tk.Button(newwindow4,text = "Enter",command = getElement,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",14,"bold"),justify = tk.LEFT)
                     m.place(x = 200,y = 80)
-                    newwindow4.mainloop()
                 
                 # Edit teacher info button
                 edit1 = tk.Button(newwindow2,text = 'Edit Teacher Info',anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
@@ -798,7 +820,7 @@ def logincommand(name_enter,password_enter):
                 edit1.place(x = 588,y = 640)
 
                 # Back button
-                back = tk.Button(newwindow2,text = "Back",command = newwindow2.destroy,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
+                back = tk.Button(newwindow2,text = "Back",command = cerrar_sesion,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",10,"bold"),justify = tk.LEFT)
                 back.place(x = 10, y = 640)
 
@@ -809,7 +831,10 @@ def logincommand(name_enter,password_enter):
 
                 # Method for editing personal information
                 def eedit2():
+                    if enfocar_si_abierta('editar_personal'):
+                        return
                     newwindow5 = tk.Toplevel(newwindow2)
+                    registrar('editar_personal',newwindow5,newwindow2)
                     newwindow5.geometry('700x800')
                     newwindow5.configure(bg = '#583830')
                     newwindow5.title("S.V.D.D. School")
@@ -857,7 +882,7 @@ def logincommand(name_enter,password_enter):
                             x.place(x = 200,y = 250)
                             y = tk.Text(newwindow5,width = 40,height = 4,font = ("Cambria",14))
                             y.place(x = 200, y = 300)
-                            back = tk.Button(newwindow5,text = "Back",command = newwindow5.destroy,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
+                            back = tk.Button(newwindow5,text = "Back",command = lambda:cerrar('editar_personal'),anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",14,"bold"),justify = tk.LEFT)
                             back.place(x = 550, y = 450)
                             dict2 = {"First Name":"name","Last Name":"lname","Middle Name":"fname","Mother's Name":"mname","Date of Birth":"dob",
@@ -891,13 +916,11 @@ def logincommand(name_enter,password_enter):
                     m = tk.Button(newwindow5,text = "Enter",command = getElement1,anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",14,"bold"),justify = tk.LEFT)
                     m.place(x = 200,y = 80)
-                    newwindow5.mainloop()
                     
                 # Editing personal information button
                 edit1 = tk.Button(newwindow2,text = 'Edit Personal Info',anchor = tk.NW,fg = '#18120F',bg = '#C7A196',
                                  font = ("Cambria",10,"bold"),justify = tk.LEFT,command = eedit2)
                 edit1.place(x = 350,y = 640)
-                newwindow2.mainloop() 
             # If password is incorrect  
             else:
                 messagebox.showerror('Incorrect Password','Your Username or Password was Incorrect.Try Again') 
