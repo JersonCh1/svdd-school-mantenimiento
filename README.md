@@ -1,184 +1,76 @@
-## School-Management-System
-School Management system in Python using tkinter library for GUI and sqlite3 for database management.
+# S.V.D.D. School — Mantenimiento de software
 
-<!-- ABOUT THE PROJECT -->
-## 📝About The Project
-The project is for a School Management System build using Python. The GUI is made using tkinter library and sqlite3 is used for database management system. The user has to login using his/her username and password. There are options for logging in for student, teacher or principal. When a student logs in using his/her correct username and password, the student can see his/her details. The teacher can login and see his/her details. The teacher can also add a new student's information and also edit an existing student's information. The principal can see his/her information, edit his/her personal information, add a new teacher's information or edit a teacher's information.
+Sistema de gestión escolar en **Python + Tkinter + SQLite**, usado como proyecto del curso **Evolución y Mantenimiento de Software (2026-II)**. Parte del proyecto abierto [rushgala27/School-Management-System](https://github.com/rushgala27/School-Management-System) (licencia MIT) y registra, versión por versión, los requerimientos de mantenimiento aplicados.
 
-<!-- HOW TO USE -->
-## Setting Up the Development Environment
-### Requirements
+- Login con tres roles: **Principal**, **Teacher** y **Student**.
+- El director ve sus datos, edita su información, da de alta docentes y edita sus datos.
+- El docente ve sus datos, da de alta alumnos y edita sus datos.
+- El alumno ve sus datos.
+- Base de datos SQLite con 3 tablas: `StudentData`, `TeacherData` y `PrincipalData`.
 
-- [Python](https://www.python.org)
+![Panel del director](docs/capturas/v4/r02_panel_natural.png)
 
-#### Getting the requirements
+## Cómo ejecutarlo
 
-1. Download and install **Python**
+Requisitos: Python 3.10 o superior (en Windows ya trae Tkinter y SQLite).
 
-   Download and install Python from [here](https://www.python.org/downloads/ "Go to official Python download page.").
-   
-2. Install the tkinter library library. The sqlite3 library is installed by default when you install python.
-   
-   ```shell
-   pip install tk
-   ```
-### Configuring the project for development
+```bash
+git clone https://github.com/JersonCh1/svdd-school-mantenimiento.git
+cd svdd-school-mantenimiento
+pip install -r requirements.txt
+python SchoolManagementSystem.py
+```
 
-1. Clone this repository
+En Linux también hace falta el paquete de Tk: `sudo apt install python3-tk`.
 
-   ```shell
-   git clone https://github.com/rushgala27/School-Management-System.git
-   cd School-Management-System
-   ```
-   
-### Sample Login Credentials
-1. **Student Login:** <br>
-   Username - Rushabh123 <br>
-   Password - 12345678 <br>
+En Windows también se puede descargar el `.exe` de la sección **Releases** y ejecutarlo sin instalar Python.
 
-2. **Teacher Login:** <br>
-   Username - Darshi999 <br>
-   Password - darshik@26 <br>
+### Usuarios de prueba
 
-3. **Principal Login:** <br>
-   Username - RajanUp12 <br>
-   Password - RUpadhyay123 <br>
+| Rol | Usuario | Contraseña |
+|---|---|---|
+| Principal | `RajanUp12` | `RUpadhyay123` |
+| Teacher | `Darshi999` | `darshik@26` |
+| Student | `Rushabh123` | `12345678` |
 
-<!-- SCREENSHOTS -->
-## 📱Screenshots
-<br>
-<table>
-  <tr>
-    <td><b> Login Page </b></td>
-  </tr>
-  <tr>
-    <td><img src = "images/login.png" width = 700></td>
-  </tr>
- </table>
- <br>
+## Versiones
 
-<table>
-  <tr>
-    <td><b> Student Login </b></td>
-     <td><b> Student Information </b></td>
-  </tr>
-  <tr>
-    <td><img src = "images/studentlogin.png" width = 500></td>
-    <td><img src = "images/studentinfo.png" width = 500></td>
-  </tr>
- </table>
- <br>
+Cada versión es una etiqueta de Git, con un commit por requerimiento. El detalle (descripción, prioridad, tipo de mantenimiento y los problemas reales que aparecieron durante cada modificación) está en **[docs/MANTENIMIENTO.md](docs/MANTENIMIENTO.md)**.
 
-<table>
-  <tr>
-     <td><b> Teacher Login </b></td>
-     <td><b> Teacher Information </b></td>
-  </tr>
-  <tr>
-    <td><img src = "images/teacherlogin.png" width = 500></td>
-    <td><img src = "images/teacherinfo.png" width = 500></td>
-  </tr>
- </table>
- <br>
- 
- <table>
-  <tr>
-     <td><b> Add New Student </b></td>
-     <td><b> Added Successfully </b></td>
-  </tr>
-  <tr>
-    <td><img src = "images/addnewstudent1.png" width = 500></td>
-    <td><img src = "images/addnewstudent2.png" width = 500></td>
-  </tr>
- </table>
- <br>
- 
-<table>
-  <tr>
-     <td><b> Edit Student Info </b></td>
-     <td><b> Edit Student Info </b></td>
-  </tr>
-  <tr>
-    <td><img src = "images/editstudentinfo1.png" width = 500></td>
-    <td><img src = "images/editstudentinfo2.png" width = 500></td>
-  </tr>
- </table>
- <br> 
- 
- <table>
-  <tr>
-     <td><b> Student Info Updated Successfully </b></td>
-  </tr>
-  <tr>
-    <td><img src = "images/editstudentinfo3.png" width = 500></td>
-  </tr>
- </table>
- <br>
- 
- <table>
-  <tr>
-     <td><b> Principal Login </b></td>
-     <td><b> Principal Information </b></td>
-  </tr>
-  <tr>
-    <td><img src = "images/principallogin.png" width = 500></td>
-    <td><img src = "images/principalinfo.png" width = 500></td>
-  </tr>
- </table>
- <br>
- 
- <table>
-  <tr>
-     <td><b> Edit Teacher Information </b></td>
-     <td><b> Edit Personal Information </b></td>
-  </tr>
-  <tr>
-    <td><img src = "images/editteacherinfo.png" width = 500></td>
-    <td><img src = "images/editpersonalinfo.png" width = 500></td>
-  </tr>
- </table>
- <br>
- 
- <table>
-  <tr>
-     <td><b> Add New Teacher </b></td>
-     <td><b> Incorrect Password </b></td>
-  </tr>
-  <tr>
-    <td><img src = "images/addnewteacher.png" width = 500></td>
-    <td><img src = "images/incorrectpassword.png" width = 500></td>
-  </tr>
- </table>
- <br>
+| Versión | Requerimientos | Tipo |
+|---|---|---|
+| `v1.0` | Proyecto original | — |
+| `v2.0` | R01 Validación de campos numéricos · R02 Navegación estable entre paneles · R03 Carga y vista previa de foto | Preventivo · Correctivo · Perfectivo |
+| `v3.0` | Clasificación del mantenimiento según la intención (ISO/IEC 14764) | — |
+| `v4.0` | R01 Navegación de ventana única · R02 Diseño responsivo (grid con pesos) · R03 Conexión única a SQLite (Singleton + WAL) | Correctiva · Perfectiva · Preventiva |
 
-<!-- TECH STACK -->
-## 🤖Tech Stack
-<img src="images/python_image.png" alt="python_image" width= 25> **Python**
+Para ver el sistema tal como estaba en una versión: `git checkout v2.0` (o `v1.0`, `v3.0`, `v4.0`).
 
-<!-- CONTRIBUTING -->
-## 🔮Contributing
+## Estructura
 
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are greatly appreciated.
+```
+SchoolManagementSystem.py   punto de entrada
+pantallas.py                login, paneles y formularios (diseño adaptable)   v4.0 R02
+navegacion.py               ventana única con pantallas intercambiables        v4.0 R01
+db.py                       conexión única a SQLite (Singleton, WAL)           v4.0 R03
+validacion.py               solo dígitos en Mobile No. / Aadhaar Card No.      v2.0 R01
+fotos.py                    selección, validación y miniatura de la foto       v2.0 R03
+migraciones.py              migraciones idempotentes de testdata.db            v2.0
+testdata.db                 base de datos de ejemplo (3 tablas)
+tests/                      pruebas automáticas (unittest)
+docs/                       registro de mantenimiento y capturas de evidencia
+```
 
-If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement". Don't forget to give the project a star! Thanks again!
+## Pruebas
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+```bash
+python -m unittest -v
+```
 
+37 pruebas: validación numérica (incluido pegar desde el portapapeles), migraciones, fotos, conexión única (bloqueos reales con y sin WAL, inyección SQL, rutas), navegación de ventana única y diseño adaptable a escalas de pantalla de 1.0 y 1.75.
 
+## Créditos y licencia
 
-<!-- LICENSE -->
-## 🖼License
-
-
-Distributed under the MIT License. See `LICENSE` for more information.
-
-
-  <p>
-    <a href="https://github.com/rushgala27/School-Management-System/issues">Report Bug</a>
-    <br>
-    <a href="https://github.com/rushgala27/School-Management-System/issues">Request Feature</a>
-  </p>
+Proyecto original: **rushgala27** — [School-Management-System](https://github.com/rushgala27/School-Management-System). Las capturas originales están en `images/`.
+Mantenimiento v2.0–v4.0: **Jerson Chura** (curso de Evolución y Mantenimiento de Software, 2026-II).
+Licencia MIT (ver `LICENSE`).

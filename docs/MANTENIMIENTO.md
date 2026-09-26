@@ -71,3 +71,67 @@ Sin cambios de código: se agrega el campo **Tipo de mantenimiento** a cada requ
 | R01 | Validación de campos numéricos | Preventivo |
 | R02 | Navegación estable entre paneles | Correctivo |
 | R03 | Carga y vista previa de foto | Perfectivo |
+
+---
+
+## Versión 4.0 — etiqueta `v4.0`
+
+Requerimientos nuevos. Cada uno lleva el **tipo de mantenimiento** (clasificación basada en la intención) y el **tipo de modificación**. Se implementó primero R03 porque R01 y R02 se apoyan en la conexión única.
+
+### R01 — Navegación de ventana única
+
+- **Descripción:** Cada botón (*Add New Teacher*, *Edit Personal Info*, *Edit Teacher Info*…) abría un `Toplevel` nuevo, que quedaba abierto detrás del panel. Se migra a una sola ventana raíz cuyas pantallas son `Frame` que se reemplazan entre sí.
+- **Prioridad:** Alta
+- **Tipo de mantenimiento:** Basada en la intención
+- **Tipo de modificación:** Correctiva
+- **Commit:** `0ee9792`
+- **Observaciones:**
+  - Un `Frame` no tiene `title()`, `geometry()` ni `protocol()`: todas esas llamadas, repetidas en cada ventana, tuvieron que salir, y el tamaño pasó a controlarse desde la ventana raíz.
+  - Los formularios de edición **solo creaban el botón *Back* después de elegir un campo y pulsar *Enter***. Con `Toplevel` se podían cerrar con la X, pero dentro de la ventana única el usuario quedaba atrapado. *Back* existe ahora desde el inicio.
+  - Tras editar un dato, el panel original seguía mostrando el valor viejo hasta volver a iniciar sesión. Ahora la sesión (rol, usuario y contraseña) vive en el navegador, y *Back* reconstruye el panel con los datos actualizados.
+- **Evidencia:** panel y formulario de alta dentro de la misma ventana (sección R02).
+
+### R02 — Diseño responsivo del panel de datos
+
+- **Descripción:** El panel y los formularios ubicaban cada `Label`/`Entry` con `place(x, y)` en píxeles fijos. Con otra resolución, fuente o escala de Windows, los campos quedaban recortados o con márgenes vacíos. Se reemplaza por `grid()` con pesos (`columnconfigure`/`rowconfigure weight`), para que los campos se acomoden al tamaño de la ventana.
+- **Prioridad:** Alta
+- **Tipo de mantenimiento:** Basada en la intención
+- **Tipo de modificación:** Perfectiva
+- **Commit:** `32a8618`
+- **Observaciones:**
+  - Con la escala de Windows activa, las etiquetas se cortaban porque las fuentes crecían y las coordenadas no ("Mother's Nam", "Teacher's Registration No" y "Teache" en el login; ver la captura R01 de la v2). Además, el formulario de alta original medía 1000×1000 y no cabía en una pantalla de 864 px lógicos.
+  - Las tres copias casi idénticas de cada pantalla (alumno, docente y director) obligaban a migrar cada widget tres veces. Se unificaron en una sola pantalla guiada por tablas de campos (~900 → ~410 líneas).
+  - Con los valores a ancho mínimo 1, los datos cortos se partían en el tamaño mínimo ("Upadhy/ay", "24/07/1968" en dos líneas). Se les dio un ancho mínimo según el dato.
+  - El primer `<Configure>` llega con ancho ≈ 1 antes de que `grid` reparta el espacio. Eso fijaba un `wraplength` de 40 px y la ventana se medía 190 px más alta de lo necesario. Ahora se ignoran esos anchos.
+  - La pantalla de edición se medía antes de mostrar los campos, y el botón *UPDATE* quedaba cortado. Hay que volver a medir al mostrarlos. Además, cada *Enter* apilaba widgets nuevos sobre los anteriores; ahora se crean una sola vez.
+- **Evidencia:** tamaño natural y ventana agrandada (la dirección pasa de 628 a 1218 px de ancho):
+  ![Panel natural](capturas/v4/r02_panel_natural.png)
+  ![Panel ancho](capturas/v4/r02_panel_ancho.png)
+  ![Alta docente](capturas/v4/r02_alta_docente.png)
+  ![Editar docente](capturas/v4/r02_editar_docente.png)
+  ![Panel docente](capturas/v4/r02_panel_docente.png)
+  ![Panel alumno](capturas/v4/r02_panel_alumno.png)
+
+### R03 — Centralización de la conexión a SQLite
+
+- **Descripción:** La conexión se abría con una ruta relativa, cada consulta concatenaba texto en el SQL y un bloqueo de la base terminaba en una excepción. Se centraliza en una clase única (Singleton) que gestiona una sola conexión compartida.
+- **Prioridad:** Media
+- **Tipo de mantenimiento:** Basada en la intención
+- **Tipo de modificación:** Preventiva
+- **Commit:** `b6fc424`
+- **Observaciones:**
+  - `sqlite3.connect("testdata.db")` es relativo a la carpeta desde donde se ejecuta. Al abrir el programa desde otra carpeta, **creaba un `testdata.db` vacío** y fallaba con `no such table: PrincipalData`. La ruta ahora es absoluta, y si el archivo no existe se avisa en lugar de crear uno vacío.
+  - En modo de diario `DELETE` (el predeterminado), una lectura falla con `database is locked` mientras otro programa (por ejemplo, un visor de SQLite) tiene una escritura abierta. Con `PRAGMA journal_mode=WAL` las lecturas siguen funcionando; las escrituras aún esperan, así que se agregó `busy_timeout` y un mensaje claro en vez de la excepción. Ambos casos tienen prueba automática.
+  - WAL crea los archivos `testdata.db-wal` y `-shm`, que se excluyeron de Git. Además, los cambios quedan en el `-wal` hasta el cierre: se verificó que cerrar la conexión los vuelca al archivo principal.
+  - Los nombres de columna no se pueden pasar como parámetro `?`, así que se validan contra el esquema real (`PRAGMA table_info`).
+  - Al parametrizar los `UPDATE` salieron tres defectos previos. Se decía "Updated Successfully" aunque ningún registro coincidiera. "General Registration No." no tenía columna asociada y lanzaba `NameError`. Y los paneles mostraban los valores entre llaves `{…}` porque le pasaban una tupla a `StringVar`.
+- **Evidencia:** un visor externo mantiene una escritura abierta y la app avisa en vez de caerse:
+  ![Base ocupada](capturas/v4/r03_base_ocupada.png)
+
+### Resumen v4.0
+
+| Req. | Título | Tipo de mantenimiento | Tipo de modificación |
+|---|---|---|---|
+| R01 | Navegación de ventana única | Basada en la intención | Correctiva |
+| R02 | Diseño responsivo del panel de datos | Basada en la intención | Perfectiva |
+| R03 | Centralización de la conexión a SQLite | Basada en la intención | Preventiva |

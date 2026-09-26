@@ -11,10 +11,11 @@ Toda la aplicación usa una sola conexión (Singleton) a testdata.db:
 """
 
 import os
+import shutil
 import sqlite3
+import sys
 import threading
 
-RUTA_POR_DEFECTO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "testdata.db")
 ESPERA_MS = 3000
 
 TABLAS = {
@@ -22,6 +23,21 @@ TABLAS = {
     "teacher": "TeacherData",
     "principal": "PrincipalData",
 }
+
+
+def ruta_por_defecto():
+    """testdata.db junto al programa.
+
+    En el .exe de PyInstaller, __file__ apunta a una carpeta temporal que se
+    borra al cerrar: los cambios se perderían. Ahí se usa la carpeta del .exe
+    y, la primera vez, se copia la base incluida en el ejecutable."""
+    if getattr(sys, "frozen", False):
+        ruta = os.path.join(os.path.dirname(sys.executable), "testdata.db")
+        incluida = os.path.join(getattr(sys, "_MEIPASS", ""), "testdata.db")
+        if not os.path.exists(ruta) and os.path.exists(incluida):
+            shutil.copy(incluida, ruta)
+        return ruta
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "testdata.db")
 
 
 class BaseDeDatosOcupada(Exception):
@@ -36,7 +52,7 @@ class BaseDatos:
         with cls._candado:
             if cls._instancia is None:
                 instancia = super().__new__(cls)
-                instancia._abrir(ruta or RUTA_POR_DEFECTO)
+                instancia._abrir(ruta or ruta_por_defecto())
                 cls._instancia = instancia
             return cls._instancia
 
