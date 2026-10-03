@@ -27,6 +27,15 @@ REGISTROS = {
 }
 PERSONAS = {t: REGISTROS[t] for t in ("student", "teacher")}
 
+# R05: en qué se busca. El identificador debe coincidir completo; los textos
+# (nombre, apellido, usuario, curso) basta con que contengan lo buscado.
+BUSQUEDA = {
+    "student": dict(exactos=("gno",), textos=("name || ' ' || lname", "username")),
+    "teacher": dict(exactos=("trno",), textos=("name || ' ' || lname", "username")),
+    "curso": dict(exactos=("c.codigo",), textos=("c.nombre", "c.codigo", "t.name || ' ' || t.lname")),
+    "matricula": dict(exactos=("m.gno", "m.periodo"), textos=("s.name || ' ' || s.lname", "c.codigo", "c.nombre")),
+}
+
 # Columnas que no pueden repetirse dentro de cada tabla, con el texto del mensaje.
 UNICAS = {
     "student": (("gno", "Ya existe un alumno con ese N.° de registro general."),
@@ -99,10 +108,20 @@ class Gestion:
     # R01 alumnos, R02 docentes, R03 cursos, R04 matrículas (solo registrar,
     # consultar y anular: una matrícula equivocada se anula y se registra otra).
 
-    def listar(self, tipo):
-        """Filas para el listado: 'clave' identifica el registro."""
+    def listar(self, tipo, filtro=""):
+        """Filas para el listado: 'clave' identifica el registro. Con 'filtro'
+        (R05) solo las que coinciden por identificador o por nombre."""
         conf = REGISTROS[tipo]
-        return self.db.consultar(f"{conf['listado']} ORDER BY {conf['orden']}")
+        sql, params = conf["listado"], []
+        filtro = filtro.strip()
+        if filtro:
+            busqueda = BUSQUEDA[tipo]
+            patron = "%" + filtro.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+            condiciones = [f"CAST({c} AS TEXT) = ? COLLATE NOCASE" for c in busqueda["exactos"]]
+            condiciones += [f"{c} LIKE ? ESCAPE '\\'" for c in busqueda["textos"]]
+            params = [filtro] * len(busqueda["exactos"]) + [patron] * len(busqueda["textos"])
+            sql += " WHERE " + " OR ".join(condiciones)
+        return self.db.consultar(f"{sql} ORDER BY {conf['orden']}", params)
 
     def obtener(self, tipo, clave):
         conf = REGISTROS[tipo]

@@ -65,15 +65,19 @@ CAMPOS["principal"] = [[("Cargo:", "pos") if c[1] == "ctfc" else c for c in fila
 
 # Listados de gestión (v5.0): título, cómo nombrar al registro y columnas (columna, título, ancho).
 LISTADOS = {
-    "student": dict(titulo="Gestión de alumnos", quien="alumno", columnas=[
+    "student": dict(titulo="Gestión de alumnos", quien="alumno",
+                    buscar="Buscar (N.° de registro o nombre):", columnas=[
         ("gno", "N.° registro", 90), ("name", "Nombre", 130), ("lname", "Apellido", 130),
         ("std", "Grado", 70), ("div", "Sección", 70), ("username", "Usuario", 120)]),
-    "teacher": dict(titulo="Gestión de docentes", quien="docente", columnas=[
+    "teacher": dict(titulo="Gestión de docentes", quien="docente",
+                    buscar="Buscar (N.° de registro o nombre):", columnas=[
         ("trno", "N.° registro", 90), ("name", "Nombre", 130), ("lname", "Apellido", 130),
         ("staught", "Cursos que dicta", 200), ("username", "Usuario", 120)]),
-    "curso": dict(titulo="Gestión de cursos", quien="curso", columnas=[
+    "curso": dict(titulo="Gestión de cursos", quien="curso",
+                  buscar="Buscar (código, curso o docente):", columnas=[
         ("codigo", "Código", 90), ("nombre", "Curso", 200), ("grado", "Grado", 80), ("docente", "Docente", 180)]),
-    "matricula": dict(titulo="Matrículas", quien="matrícula", editable=False, columnas=[
+    "matricula": dict(titulo="Matrículas", quien="matrícula", editable=False,
+                      buscar="Buscar (N.° de registro, alumno, curso o periodo):", columnas=[
         ("periodo", "Periodo", 80), ("gno", "N.° registro", 90), ("alumno", "Alumno", 180),
         ("codigo", "Código", 80), ("curso", "Curso", 160), ("grado", "Grado", 70), ("fecha", "Fecha", 100)]),
 }
@@ -278,7 +282,18 @@ class Aplicacion:
         cuerpo = tk.Frame(p, bg=FONDO)
         cuerpo.grid(row=2, column=0, sticky="nsew", padx=14, pady=10)
         cuerpo.columnconfigure(0, weight=1)
-        cuerpo.rowconfigure(0, weight=1)
+        cuerpo.rowconfigure(1, weight=1)
+
+        # R05: búsqueda por identificador o nombre.
+        buscador = tk.Frame(cuerpo, bg=FONDO)
+        buscador.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 8))
+        buscador.columnconfigure(1, weight=1)
+        etiqueta(buscador, conf["buscar"]).grid(row=0, column=0, sticky="w", padx=(0, 8))
+        filtro = tk.Entry(buscador, width=20, font=F_VALOR, fg=TEXTO, bg=VALOR)
+        filtro.grid(row=0, column=1, sticky="ew")
+        boton(buscador, "Buscar", lambda: cargar()).grid(row=0, column=2, padx=(8, 0))
+        boton(buscador, "Mostrar todos", lambda: (filtro.delete(0, "end"), cargar())).grid(row=0, column=3, padx=(8, 0))
+        filtro.bind("<Return>", lambda _e: cargar())
 
         columnas = [c for c, _t, _a in conf["columnas"]]
         tabla = ttk.Treeview(cuerpo, columns=columnas, show="headings", height=12, selectmode="browse")
@@ -287,22 +302,32 @@ class Aplicacion:
             tabla.column(col, width=ancho, minwidth=50, stretch=True)
         barra = ttk.Scrollbar(cuerpo, orient="vertical", command=tabla.yview)
         tabla.configure(yscrollcommand=barra.set)
-        tabla.grid(row=0, column=0, sticky="nsew")
-        barra.grid(row=0, column=1, sticky="ns")
+        tabla.grid(row=1, column=0, sticky="nsew")
+        barra.grid(row=1, column=1, sticky="ns")
         aviso = tk.Label(cuerpo, text="", font=F_VALOR, fg=VALOR, bg=FONDO, anchor="w")
-        aviso.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+        aviso.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(6, 0))
 
         claves = {}  # iid del Treeview (texto) -> clave real del registro
 
         def cargar():
             tabla.delete(*tabla.get_children())
             claves.clear()
-            filas = self.gestion.listar(tipo)
+            buscado = filtro.get().strip()
+            try:
+                filas = self.gestion.listar(tipo, buscado)
+            except BaseDeDatosOcupada as e:
+                messagebox.showerror("Base de datos ocupada", str(e), parent=p)
+                return
             for fila in filas:
                 claves[str(fila["clave"])] = fila["clave"]
                 tabla.insert("", "end", iid=str(fila["clave"]),
                              values=["" if fila[c] is None else fila[c] for c in columnas])
-            aviso.configure(text=f"{len(filas)} registro(s).")
+            if buscado and not filas:
+                aviso.configure(text=f"No se encontraron coincidencias para «{buscado}».", fg=ERROR)
+            elif buscado:
+                aviso.configure(text=f"{len(filas)} coincidencia(s) para «{buscado}».", fg=VALOR)
+            else:
+                aviso.configure(text=f"{len(filas)} registro(s).", fg=VALOR)
             if seleccion is not None and tabla.exists(str(seleccion)):
                 tabla.selection_set(str(seleccion))
                 tabla.see(str(seleccion))
