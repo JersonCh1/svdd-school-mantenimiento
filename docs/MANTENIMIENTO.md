@@ -154,3 +154,120 @@ Requerimientos nuevos. Cada uno lleva el **tipo de mantenimiento** (clasificaci�
   ![Panel del director](capturas/v4.1/panel_natural.png)
   ![Alta de docente](capturas/v4.1/alta_docente.png)
   ![Editar docente](capturas/v4.1/editar_docente.png)
+
+---
+
+## Versión 5.0 — etiqueta `v5.0`
+
+Requerimientos funcionales del sistema de gestión escolar. En la hoja original el último requerimiento aparecía repetido como **R05**; aquí se numera **R07** para que cada código sea único. Se implementaron en este orden: R07 → R06 → R01 → R02 → R03 → R04 → R05, porque la gestión de registros se apoya en las transacciones (R07) y en la validación (R06).
+
+### R01 — Gestión de estudiantes
+
+- **Descripción:** El sistema deberá permitir registrar, consultar, actualizar y eliminar los datos de los estudiantes, almacenándolos en la base de datos SQLite.
+- **Prioridad:** Alta
+- **Tipo de mantenimiento:** Basada en la intención
+- **Tipo de modificación:** Perfectiva
+- **Commit:** `5c3298e`
+- **Observaciones:** Validar los campos obligatorios y evitar registros duplicados.
+  - Antes solo existían el alta y la edición de **un campo**, escribiendo a mano el nombre y el N.° de registro; no había forma de ver la lista ni de eliminar. Ahora hay una pantalla *Gestión de alumnos* (listado, Nuevo, Editar, Eliminar con confirmación) y el mismo formulario del alta sirve para editar con todos los datos cargados.
+  - El `Treeview` guarda los identificadores como texto (`"3644"`) y la base como entero (`3644`). Se mantiene un mapa iid → clave real para no depender de conversiones implícitas de SQLite.
+  - Al editar, si no se elige otra foto, se conserva la actual (antes la foto solo se podía elegir en el alta).
+- **Evidencia:**
+  ![Gestión de alumnos](capturas/v5/gestion_alumnos.png)
+  ![Editar alumno](capturas/v5/editar_alumno.png)
+
+### R02 — Gestión de docentes
+
+- **Descripción:** El sistema deberá permitir registrar, consultar, actualizar y eliminar la información de los docentes de la institución educativa.
+- **Prioridad:** Alta
+- **Tipo de mantenimiento:** Basada en la intención
+- **Tipo de modificación:** Perfectiva
+- **Commit:** `9e7e309`
+- **Observaciones:** Validar los datos obligatorios y conservar los cambios en SQLite.
+  - El director accede desde su panel (*Docentes*); el docente no ve esa opción.
+  - Un docente con cursos a cargo no se puede eliminar: el sistema indica cuántos cursos tiene y que hay que reasignarlos primero.
+  - Si cambia el N.° de registro de un docente, sus cursos lo siguen (`ON UPDATE CASCADE`).
+- **Evidencia:** ![Gestión de docentes](capturas/v5/gestion_docentes.png)
+
+### R03 — Gestión de cursos
+
+- **Descripción:** El sistema deberá permitir registrar, consultar, actualizar y eliminar los cursos de la institución educativa.
+- **Prioridad:** Alta
+- **Tipo de mantenimiento:** Basada en la intención
+- **Tipo de modificación:** Perfectiva
+- **Commit:** `ed9c88b`
+- **Observaciones:** Cada curso deberá contar con un identificador único. Las relaciones con otros registros deberán verificarse antes de eliminarlo.
+  - La base no tenía tablas de cursos. Se creó `Curso` con `id INTEGER PRIMARY KEY` y `codigo UNIQUE` (se guarda en mayúsculas: `mat-10` y `MAT-10` son el mismo curso).
+  - Para que `Curso.trno` sea clave foránea de `TeacherData(trno)`, esa columna necesita un índice único; sin él SQLite responde `foreign key mismatch` en cada escritura. Por eso R07 (índices únicos) tuvo que ir antes.
+  - Un curso con alumnos matriculados no se puede eliminar.
+- **Evidencia:**
+  ![Gestión de cursos](capturas/v5/gestion_cursos.png)
+  ![Editar curso](capturas/v5/editar_curso.png)
+
+### R04 — Registro de matrículas
+
+- **Descripción:** El sistema deberá permitir registrar y consultar las matrículas, asociando a cada estudiante con el grado o curso y el periodo académico correspondiente.
+- **Prioridad:** Alta
+- **Tipo de mantenimiento:** Basada en la intención
+- **Tipo de modificación:** Perfectiva
+- **Commit:** `a715f52`
+- **Observaciones:** Verificar que el estudiante esté registrado y evitar matrículas duplicadas para la misma asignación y periodo.
+  - Tabla `Matricula` con `UNIQUE(gno, curso_id, periodo)` y claves foráneas a `StudentData(gno)` y `Curso(id)`. La aplicación revisa antes de guardar (mensaje claro) y la base lo vuelve a impedir si algo se escapa.
+  - Alumno y curso se eligen de listas, para no escribir números a mano. El periodo (`2026-II`) se propone según la fecha: enero-julio es el I y agosto-diciembre el II.
+  - Una matrícula equivocada se **anula** y se registra otra; no se edita, para no perder qué se registró y cuándo.
+- **Evidencia:**
+  ![Matrículas](capturas/v5/matriculas.png)
+  ![Nueva matrícula](capturas/v5/nueva_matricula.png)
+
+### R05 — Búsqueda y consulta de información
+
+- **Descripción:** El sistema deberá permitir localizar y consultar los registros mediante criterios de búsqueda, como identificador o nombre.
+- **Prioridad:** Media
+- **Tipo de mantenimiento:** Basada en la intención
+- **Tipo de modificación:** Perfectiva
+- **Commit:** `f610ff0`
+- **Observaciones:** Mostrar los resultados en la interfaz e informar cuando no existan coincidencias.
+  - El identificador debe coincidir completo (buscar `364` no trae al `3644`); el nombre basta con que contenga lo escrito, sin distinguir mayúsculas.
+  - `%` y `_` son comodines de `LIKE`: sin escaparlos, buscar `%` traería a todos. Se escapan para que se busquen como texto.
+  - Limitación conocida: `LIKE` de SQLite solo ignora mayúsculas en letras ASCII, así que `lucia` no encuentra `Lucía`.
+- **Evidencia:** ![Sin coincidencias](capturas/v5/busqueda_sin_resultados.png)
+
+### R06 — Validación de datos
+
+- **Descripción:** El sistema deberá validar los datos antes de guardarlos, rechazando campos obligatorios vacíos, formatos incorrectos y duplicados según las reglas de cada registro.
+- **Prioridad:** Alta
+- **Tipo de mantenimiento:** Basada en la intención
+- **Tipo de modificación:** Correctiva
+- **Commit:** `37611c1`
+- **Observaciones:** Mostrar mensajes claros que indiquen el error y permitir corregirlo sin perder los demás datos ingresados.
+  - El alta permitía guardar un alumno o docente sin nombre, usuario ni contraseña. Ahora cada tipo de registro tiene sus reglas (obligatorios, enteros, decimales, fechas `dd/mm/aaaa`, celular y Aadhaar, código de curso, periodo).
+  - Se muestran **todos** los errores juntos, los campos con problema se pintan y el cursor va al primero. Lo escrito no se borra.
+  - `31/02/2012` tiene el formato correcto pero no existe: se valida con `datetime.strptime`, no solo con una expresión regular.
+  - La base trae fechas inválidas de prueba (`tyjuyj`, `jtyutr`). No se tocaron con una migración (no se puede adivinar la fecha real): el sistema las marca cuando alguien edita ese registro.
+- **Evidencia:** ![Validación](capturas/v5/validacion_alumno.png)
+
+### R07 — Persistencia e integridad de la información
+
+- **Descripción:** El sistema deberá almacenar la información en SQLite y recuperarla al reiniciar la aplicación, manteniendo la consistencia de los registros y sus relaciones.
+- **Prioridad:** Alta
+- **Tipo de mantenimiento:** Basada en la intención
+- **Tipo de modificación:** Preventiva
+- **Commit:** `ce16937`
+- **Observaciones:** Confirmar las operaciones realizadas y revertir los cambios cuando ocurra un error durante el guardado.
+  - SQLite **no revisa las claves foráneas** salvo que cada conexión active `PRAGMA foreign_keys = ON`.
+  - Con `with con:` anidados, el interno confirma a mitad de una operación compuesta. `BaseDatos.transaccion()` solo confirma en la transacción externa y revierte todo ante cualquier excepción.
+  - No se pudo crear el índice único de `TeacherData.username` porque el usuario `5555` estaba **dos veces, idéntico**. La migración borra solo copias exactas; si hubiera duplicados distintos, avisa en vez de borrar datos.
+  - Un `IntegrityError` llega como `ErrorIntegridad` con un mensaje en español ("Ya existe un registro con ese usuario"), y cada operación correcta se confirma con un mensaje.
+  - Las pruebas cierran y reabren la base para comprobar que los datos se recuperan.
+
+### Resumen v5.0
+
+| Req. | Título | Prioridad | Tipo de modificación |
+|---|---|---|---|
+| R01 | Gestión de estudiantes | Alta | Perfectiva |
+| R02 | Gestión de docentes | Alta | Perfectiva |
+| R03 | Gestión de cursos | Alta | Perfectiva |
+| R04 | Registro de matrículas | Alta | Perfectiva |
+| R05 | Búsqueda y consulta de información | Media | Perfectiva |
+| R06 | Validación de datos | Alta | Correctiva |
+| R07 | Persistencia e integridad de la información | Alta | Preventiva |
