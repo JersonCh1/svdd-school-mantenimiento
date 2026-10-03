@@ -68,6 +68,9 @@ LISTADOS = {
     "student": dict(titulo="Gestión de alumnos", quien="alumno", columnas=[
         ("gno", "N.° registro", 90), ("name", "Nombre", 130), ("lname", "Apellido", 130),
         ("std", "Grado", 70), ("div", "Sección", 70), ("username", "Usuario", 120)]),
+    "teacher": dict(titulo="Gestión de docentes", quien="docente", columnas=[
+        ("trno", "N.° registro", 90), ("name", "Nombre", 130), ("lname", "Apellido", 130),
+        ("staught", "Cursos que dicta", 200), ("username", "Usuario", 120)]),
 }
 
 # Formularios de edición: qué tabla, cómo se identifica el registro y qué campos se pueden cambiar.
@@ -241,7 +244,8 @@ class Aplicacion:
 
         botones = [("Cerrar sesión", self.cerrar_sesion)]
         if rol == "principal":
-            botones += [("Editar mis datos", lambda: self.mostrar_edicion("personal"))]
+            botones += [("Editar mis datos", lambda: self.mostrar_edicion("personal")),
+                        ("Docentes", lambda: self.mostrar_gestion("teacher"))]
         if rol in ("principal", "teacher"):
             botones += [("Alumnos", lambda: self.mostrar_gestion("student"))]
         self.barra_botones(p, botones)

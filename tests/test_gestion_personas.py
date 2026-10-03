@@ -57,6 +57,32 @@ class AlumnosTest(BaseTest):
             self.g.actualizar_persona("student", 9876, self.ALUMNO)
 
 
+class DocentesTest(BaseTest):
+    DOCENTE = {"name": "Luis", "lname": "Quispe", "trno": "3030", "username": "luisq", "password": "l1",
+               "dob": "05/05/1985", "mno": "9123456780"}
+
+    def test_alta_edicion_y_baja(self):
+        self.g.registrar_persona("teacher", self.DOCENTE)
+        self.g.actualizar_persona("teacher", 3030, {**self.DOCENTE, "staught": "Historia"})
+        self.assertEqual(self.g.obtener("teacher", 3030)["staught"], "Historia")
+        self.g.eliminar("teacher", 3030)
+        self.assertIsNone(self.g.obtener("teacher", 3030))
+
+    def test_obligatorios_y_duplicados(self):
+        with self.assertRaises(ErrorValidacion) as e:
+            self.g.registrar_persona("teacher", {**self.DOCENTE, "trno": "9999", "password": ""})
+        self.assertEqual([c for c, _m in e.exception.errores], ["password"])
+        with self.assertRaises(ErrorValidacion) as e:
+            self.g.registrar_persona("teacher", {**self.DOCENTE, "trno": "9999", "username": "Darshi999"})
+        self.assertEqual([c for c, _m in e.exception.errores], ["trno", "username"])
+
+    def test_los_cambios_quedan_en_sqlite(self):
+        self.g.registrar_persona("teacher", self.DOCENTE)
+        BaseDatos.cerrar()
+        self.db = BaseDatos(self.ruta)
+        self.assertEqual(Gestion(self.db).obtener("teacher", 3030)["name"], "Luis")
+
+
 class PantallaGestionTest(BaseTest):
     def setUp(self):
         super().setUp()
@@ -107,6 +133,20 @@ class PantallaGestionTest(BaseTest):
             self.boton("Eliminar")
         self.assertIsNone(self.g.obtener("student", 1100))
         self.assertNotIn("1100", self.tabla().get_children())
+
+    def test_el_director_gestiona_docentes(self):
+        self.app.nav.sesion = (1, "RajanUp12", "RUpadhyay123")
+        self.app.mostrar_panel()
+        self.boton("Docentes")
+        self.assertIn("9999", self.tabla().get_children())
+        self.boton("Nuevo")
+        entradas = [w for w in widgets(self.app.nav.actual) if isinstance(w, tk.Entry)]
+        self.assertTrue(all(e.get() == "" for e in entradas))
+
+    def test_el_docente_no_ve_docentes(self):
+        self.app.mostrar_panel()
+        textos = [w.cget("text") for w in widgets(self.app.nav.actual) if isinstance(w, tk.Button)]
+        self.assertNotIn("Docentes", textos)
 
     def test_sin_seleccion_avisa(self):
         self.app.mostrar_gestion("student")
