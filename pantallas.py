@@ -14,7 +14,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 import fotos
-from db import TABLAS, BaseDeDatosOcupada
+from db import TABLAS, BaseDeDatosOcupada, ErrorIntegridad
 from navegacion import Navegador
 from validacion import configurar_numerico, error_numerico
 
@@ -286,6 +286,9 @@ class Aplicacion:
             except BaseDeDatosOcupada as e:
                 messagebox.showerror("Base de datos ocupada", str(e), parent=p)
                 return
+            except ErrorIntegridad as e:
+                messagebox.showerror("No se guardó", f"{e}\nNo se guardó ningún cambio.", parent=p)
+                return
             quien = "alumno" if tipo == "student" else "docente"
             messagebox.showinfo("Registro guardado", f"Se registraron los datos del nuevo {quien}.", parent=p)
 
@@ -353,6 +356,9 @@ class Aplicacion:
                                            {"name": nombre.get(), conf["clave"]: registro.get()})
             except BaseDeDatosOcupada as e:
                 messagebox.showerror("Base de datos ocupada", str(e), parent=p)
+                return
+            except ErrorIntegridad as e:
+                messagebox.showerror("No se actualizó", f"{e}\nNo se guardó ningún cambio.", parent=p)
                 return
             if filas == 0:
                 messagebox.showerror("No encontrado", "Ningún registro coincide con ese nombre y número de registro.", parent=p)

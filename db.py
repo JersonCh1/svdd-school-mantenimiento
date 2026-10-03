@@ -8,6 +8,14 @@ Toda la aplicación usa una sola conexión (Singleton) a testdata.db:
   - busy_timeout: ante un bloqueo, espera antes de fallar.
   - Consultas parametrizadas; los nombres de columna se validan contra el
     esquema real (no se pueden pasar como parámetro '?').
+
+v5.0 R07 — persistencia e integridad:
+  - PRAGMA foreign_keys = ON: SQLite no revisa las relaciones (cursos,
+    matrículas) si no se activa en cada conexión.
+  - transaccion(): varias escrituras se confirman juntas o se revierten
+    todas si una falla.
+  - Un duplicado o una relación rota llegan como ErrorIntegridad, con un
+    mensaje claro, y nunca dejan la base a medio escribir.
 """
 
 import os
@@ -15,6 +23,7 @@ import shutil
 import sqlite3
 import sys
 import threading
+from contextlib import contextmanager
 
 ESPERA_MS = 3000
 
@@ -22,6 +31,16 @@ TABLAS = {
     "student": "StudentData",
     "teacher": "TeacherData",
     "principal": "PrincipalData",
+    "curso": "Curso",
+    "matricula": "Matricula",
+}
+
+# Nombre legible de las columnas que tienen índice único (mensajes de duplicado).
+UNICOS = {
+    "username": "ese usuario",
+    "gno": "ese N.° de registro general",
+    "trno": "ese N.° de registro docente",
+    "codigo": "ese código de curso",
 }
 
 
@@ -42,6 +61,23 @@ def ruta_por_defecto():
 
 class BaseDeDatosOcupada(Exception):
     """La base sigue bloqueada por otro proceso tras la espera."""
+
+
+class ErrorIntegridad(Exception):
+    """Duplicado o relación rota: la operación se revirtió completa."""
+
+
+def mensaje_integridad(error):
+    texto = str(error)
+    if "UNIQUE" in texto:
+        if "Matricula" in texto:
+            return "El alumno ya está matriculado en ese curso para ese periodo."
+        columna = texto.rsplit(".", 1)[-1]
+        return f"Ya existe un registro con {UNICOS.get(columna, 'esos datos')}."
+    if "FOREIGN KEY" in texto:
+        return ("El registro está relacionado con otros (cursos o matrículas): "
+                "no se puede eliminar ni dejar esa relación sin destino.")
+    return f"La base de datos rechazó la operación: {texto}"
 
 
 class BaseDatos:
@@ -66,7 +102,9 @@ class BaseDatos:
         self.con.row_factory = sqlite3.Row
         self.con.execute(f"PRAGMA busy_timeout = {ESPERA_MS}")
         self.con.execute("PRAGMA journal_mode = WAL")
+        self.con.execute("PRAGMA foreign_keys = ON")
         self._columnas = {}
+        self._en_transaccion = False
 
     @classmethod
     def cerrar(cls):
@@ -95,8 +133,31 @@ class BaseDatos:
     def uno(self, sql, params=()):
         return self._ejecutar(sql, params).fetchone()
 
+    @contextmanager
+    def transaccion(self):
+        """Commit al final si todo salió bien; rollback de TODO si algo falla.
+
+        Se puede anidar: solo la transacción externa confirma. (Con 'with con:'
+        anidados, el interno confirmaba a mitad de la operación.)"""
+        if self._en_transaccion:
+            yield self
+            return
+        self._en_transaccion = True
+        try:
+            yield self
+        except sqlite3.IntegrityError as e:
+            self.con.rollback()
+            raise ErrorIntegridad(mensaje_integridad(e)) from e
+        except BaseException:
+            self.con.rollback()
+            raise
+        else:
+            self.con.commit()
+        finally:
+            self._en_transaccion = False
+
     def escribir(self, sql, params=()):
-        with self.con:  # commit, o rollback si falla
+        with self.transaccion():
             return self._ejecutar(sql, params).rowcount
 
     def columnas(self, tabla):
@@ -125,9 +186,20 @@ class BaseDatos:
         return self.escribir(f"INSERT INTO {tabla} ({', '.join(cols)}) VALUES ({marcas})",
                              tuple(datos.values()))
 
+    def _condiciones(self, tabla, donde):
+        return " AND ".join(f"{self._columna(tabla, c)} = ?" for c in donde)
+
     def actualizar(self, tabla, columna, valor, donde):
         """UPDATE de una columna; 'donde' es un dict columna -> valor. Devuelve filas afectadas."""
-        col = self._columna(tabla, columna)
-        condiciones = " AND ".join(f"{self._columna(tabla, c)} = ?" for c in donde)
-        return self.escribir(f"UPDATE {tabla} SET {col} = ? WHERE {condiciones}",
-                             (valor, *donde.values()))
+        return self.actualizar_fila(tabla, {columna: valor}, donde)
+
+    def actualizar_fila(self, tabla, datos, donde):
+        """UPDATE de varias columnas a la vez. Devuelve filas afectadas."""
+        asignaciones = ", ".join(f"{self._columna(tabla, c)} = ?" for c in datos)
+        return self.escribir(f"UPDATE {tabla} SET {asignaciones} WHERE {self._condiciones(tabla, donde)}",
+                             (*datos.values(), *donde.values()))
+
+    def eliminar(self, tabla, donde):
+        """DELETE de los registros que cumplen 'donde'. Devuelve filas afectadas."""
+        return self.escribir(f"DELETE FROM {tabla} WHERE {self._condiciones(tabla, donde)}",
+                             tuple(donde.values()))
