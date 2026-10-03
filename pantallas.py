@@ -11,12 +11,12 @@ se reemplazan por una sola, guiada por las tablas de campos de abajo.
 """
 
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 
 import fotos
 from db import TABLAS, BaseDeDatosOcupada, ErrorIntegridad
 from navegacion import Navegador
-from gestion import ErrorValidacion, Gestion
+from gestion import PERSONAS, ErrorValidacion, Gestion
 from validacion import configurar_numerico, errores_registro
 
 FONDO = '#583830'
@@ -63,18 +63,22 @@ CAMPOS = {
 }
 CAMPOS["principal"] = [[("Cargo:", "pos") if c[1] == "ctfc" else c for c in fila] for fila in CAMPOS["teacher"]]
 
+# Listados de gestión (v5.0): título, cómo nombrar al registro y columnas (columna, título, ancho).
+LISTADOS = {
+    "student": dict(titulo="Gestión de alumnos", quien="alumno", columnas=[
+        ("gno", "N.° registro", 90), ("name", "Nombre", 130), ("lname", "Apellido", 130),
+        ("std", "Grado", 70), ("div", "Sección", 70), ("username", "Usuario", 120)]),
+}
+
 # Formularios de edición: qué tabla, cómo se identifica el registro y qué campos se pueden cambiar.
+# (Desde la v5.0 los alumnos y docentes se editan con el formulario completo.)
 EDICIONES = {
-    "student": dict(tabla="StudentData", clave="gno", rol="teacher",
-                    nombre="Nombre del alumno:", registro="N.° de registro general:"),
-    "teacher": dict(tabla="TeacherData", clave="trno", rol="principal",
-                    nombre="Nombre del docente:", registro="N.° de registro docente:"),
     "personal": dict(tabla="PrincipalData", clave="trno", rol="principal",
                      nombre="Tu nombre:", registro="Tu N.° de registro:"),
 }
-ROL_DE_EDICION = {"student": "student", "teacher": "teacher", "personal": "principal"}
+ROL_DE_EDICION = {"personal": "principal"}
 for _tipo, _conf in EDICIONES.items():
-    _campos = CAMPOS["student" if _tipo == "student" else ("principal" if _tipo == "personal" else "teacher")]
+    _campos = CAMPOS[ROL_DE_EDICION[_tipo]]
     _conf["opciones"] = [(etq.rstrip(":"), col) for fila in _campos for etq, col, *_ in fila]
 
 
@@ -236,13 +240,10 @@ class Aplicacion:
         filas_de_campos(cuerpo, CAMPOS[rol][3:], valor, desde=1)
 
         botones = [("Cerrar sesión", self.cerrar_sesion)]
-        if rol == "teacher":
-            botones += [("Nuevo alumno", lambda: self.mostrar_alta("student")),
-                        ("Editar alumno", lambda: self.mostrar_edicion("student"))]
         if rol == "principal":
-            botones += [("Nuevo docente", lambda: self.mostrar_alta("teacher")),
-                        ("Editar mis datos", lambda: self.mostrar_edicion("personal")),
-                        ("Editar docente", lambda: self.mostrar_edicion("teacher"))]
+            botones += [("Editar mis datos", lambda: self.mostrar_edicion("personal"))]
+        if rol in ("principal", "teacher"):
+            botones += [("Alumnos", lambda: self.mostrar_gestion("student"))]
         self.barra_botones(p, botones)
         self.nav.ajustar(minimo=(640, 0))
 
@@ -253,10 +254,96 @@ class Aplicacion:
             barra.columnconfigure(i, weight=1)
             boton(barra, texto, comando).grid(row=0, column=i, sticky="w" if i == 0 else "e", padx=4)
 
-    # --- alta de alumno / docente -------------------------------------------
+    # --- gestión: listado con altas, ediciones y bajas (v5.0) ---------------
 
-    def mostrar_alta(self, tipo):
+    def mostrar_gestion(self, tipo, seleccion=None):
+        conf = LISTADOS[tipo]
+        p = self.nav.pantalla()
+        p.columnconfigure(0, weight=1)
+        p.rowconfigure(2, weight=1)
+        self.encabezado(p, ROLES[self.nav.sesion[0]])
+        tk.Label(p, text=conf["titulo"], font=F_ETIQUETA, fg=VALOR, bg=FONDO, anchor="w").grid(
+            row=1, column=0, sticky="ew", padx=14, pady=(10, 0))
+        cuerpo = tk.Frame(p, bg=FONDO)
+        cuerpo.grid(row=2, column=0, sticky="nsew", padx=14, pady=10)
+        cuerpo.columnconfigure(0, weight=1)
+        cuerpo.rowconfigure(0, weight=1)
+
+        columnas = [c for c, _t, _a in conf["columnas"]]
+        tabla = ttk.Treeview(cuerpo, columns=columnas, show="headings", height=12, selectmode="browse")
+        for col, titulo, ancho in conf["columnas"]:
+            tabla.heading(col, text=titulo, anchor="w")
+            tabla.column(col, width=ancho, minwidth=50, stretch=True)
+        barra = ttk.Scrollbar(cuerpo, orient="vertical", command=tabla.yview)
+        tabla.configure(yscrollcommand=barra.set)
+        tabla.grid(row=0, column=0, sticky="nsew")
+        barra.grid(row=0, column=1, sticky="ns")
+        aviso = tk.Label(cuerpo, text="", font=F_VALOR, fg=VALOR, bg=FONDO, anchor="w")
+        aviso.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+
+        def cargar():
+            tabla.delete(*tabla.get_children())
+            filas = self.gestion.listar(tipo)
+            for fila in filas:
+                tabla.insert("", "end", iid=str(fila["clave"]),
+                             values=["" if fila[c] is None else fila[c] for c in columnas])
+            aviso.configure(text=f"{len(filas)} registro(s).")
+            if seleccion is not None and tabla.exists(str(seleccion)):
+                tabla.selection_set(str(seleccion))
+                tabla.see(str(seleccion))
+
+        def elegido():
+            sel = tabla.selection()
+            if not sel:
+                messagebox.showerror("Falta elegir", f"Selecciona en la lista el {conf['quien']}.", parent=p)
+                return None
+            return sel[0]
+
+        def editar():
+            clave = elegido()
+            if clave is not None:
+                self.mostrar_formulario(tipo, clave)
+
+        def eliminar():
+            clave = elegido()
+            if clave is None:
+                return
+            descripcion = " ".join(str(v) for v in tabla.item(clave, "values")[:3])
+            if not messagebox.askyesno("Confirmar eliminación",
+                                       f"¿Eliminar al {conf['quien']} {descripcion}?\n"
+                                       "Esta acción no se puede deshacer.", parent=p):
+                return
+            if self.ejecutar(p, lambda: self.gestion.eliminar(tipo, clave)):
+                messagebox.showinfo("Eliminado", f"Se eliminó el {conf['quien']}.", parent=p)
+                cargar()
+
+        tabla.bind("<Double-1>", lambda _e: editar())
+        cargar()
+        self.barra_botones(p, [("Volver", self.mostrar_panel), ("Nuevo", lambda: self.mostrar_formulario(tipo)),
+                               ("Editar", editar), ("Eliminar", eliminar)], fila=3)
+        self.nav.ajustar(minimo=(760, 460))
+
+    def ejecutar(self, p, operacion):
+        """Corre una operación de escritura y explica cualquier fallo.
+        Devuelve True si se guardó. Si falla, la transacción ya se revirtió (R07)."""
+        try:
+            operacion()
+        except ErrorValidacion as e:
+            messagebox.showerror("No se guardó", str(e), parent=p)
+        except ErrorIntegridad as e:
+            messagebox.showerror("No se guardó", f"{e}\nNo se guardó ningún cambio.", parent=p)
+        except BaseDeDatosOcupada as e:
+            messagebox.showerror("Base de datos ocupada", str(e), parent=p)
+        else:
+            return True
+        return False
+
+    # --- formulario de alumno / docente (alta y edición) ---------------------
+
+    def mostrar_formulario(self, tipo, clave=None):
+        """Sin 'clave' es un alta; con 'clave' se cargan los datos para editarlos."""
         rol = ROLES[self.nav.sesion[0]]
+        registro = self.gestion.obtener(tipo, clave) if clave is not None else None
         p = self.nav.pantalla()
         p.columnconfigure(0, weight=1)
         p.rowconfigure(1, weight=1)
@@ -282,21 +369,35 @@ class Aplicacion:
         etiqueta(lateral, "Foto:").grid(row=0, column=0, sticky="w", pady=5)
         selector.boton.grid(row=0, column=1, sticky="w", padx=4)
         cuenta = {}
-        for i, (texto, clave) in enumerate((("Usuario:", "username"), ("Contraseña:", "password")), start=1):
+        for i, (texto, col) in enumerate((("Usuario:", "username"), ("Contraseña:", "password")), start=1):
             etiqueta(lateral, texto).grid(row=i, column=0, sticky="w", pady=5)
-            cuenta[clave] = tk.Entry(lateral, width=15, font=F_VALOR, fg=TEXTO, bg=VALOR)
-            cuenta[clave].grid(row=i, column=1, sticky="ew", padx=4)
+            cuenta[col] = tk.Entry(lateral, width=15, font=F_VALOR, fg=TEXTO, bg=VALOR)
+            cuenta[col].grid(row=i, column=1, sticky="ew", padx=4)
         selector.vista.grid(row=3, column=0, columnspan=2, pady=6)
         campos.update(filas_de_campos(cuerpo, CAMPOS[tipo][3:], entrada, desde=1))
         configurar_numerico(campos["mno"], 10)
         configurar_numerico(campos["adno"], 12)
 
+        if registro is not None:
+            for col, w in {**campos, **cuenta}.items():
+                valor = "" if registro[col] is None else str(registro[col])
+                w.insert("1.0", valor) if isinstance(w, tk.Text) else w.insert(0, valor)
+            # Si no se elige otra foto, se conserva la actual.
+            selector.nombre, selector.datos = registro["photo"] or "", registro["photo_blob"]
+            if selector.datos:
+                fotos.mostrar(selector.vista, selector.datos, fotos.TAMANO_MINIATURA)
+
+        quien = LISTADOS[tipo]["quien"]
+
         def guardar():
             datos = {col: texto_de(w) for col, w in campos.items()}
-            datos.update({clave: w.get() for clave, w in cuenta.items()})
+            datos.update({col: w.get() for col, w in cuenta.items()})
             datos.update(photo=selector.nombre, photo_blob=selector.datos)
             try:
-                self.gestion.registrar_persona(tipo, datos)
+                if registro is None:
+                    guardados = self.gestion.registrar_persona(tipo, datos)
+                else:
+                    guardados = self.gestion.actualizar_persona(tipo, clave, datos)
             except ErrorValidacion as e:
                 marcar_errores(p, {**campos, **cuenta}, e.errores)
                 return
@@ -306,10 +407,14 @@ class Aplicacion:
             except ErrorIntegridad as e:
                 messagebox.showerror("No se guardó", f"{e}\nNo se guardó ningún cambio.", parent=p)
                 return
-            quien = "alumno" if tipo == "student" else "docente"
-            messagebox.showinfo("Registro guardado", f"Se registraron los datos del nuevo {quien}.", parent=p)
+            if registro is None:
+                messagebox.showinfo("Registro guardado", f"Se registraron los datos del nuevo {quien}.", parent=p)
+            else:
+                messagebox.showinfo("Registro actualizado", f"Se actualizaron los datos del {quien}.", parent=p)
+            self.mostrar_gestion(tipo, seleccion=guardados[PERSONAS[tipo]["clave"]])
 
-        self.barra_botones(p, [("Volver", self.mostrar_panel), ("Guardar", guardar)])
+        self.barra_botones(p, [("Volver", lambda: self.mostrar_gestion(tipo, seleccion=clave)),
+                               ("Guardar", guardar)])
         self.nav.ajustar(minimo=(760, 0))
 
     # --- edición de un campo -------------------------------------------------

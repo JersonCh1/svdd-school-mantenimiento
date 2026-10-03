@@ -98,7 +98,7 @@ class FormularioTest(unittest.TestCase):
         shutil.rmtree(self.dir, ignore_errors=True)
 
     def test_campos_marcados_y_datos_conservados(self):
-        self.app.mostrar_alta("student")
+        self.app.mostrar_formulario("student")
         self.root.update()
         entradas = [w for w in widgets(self.app.nav.actual) if isinstance(w, tk.Entry)]
         nombre, apellido = entradas[0], entradas[1]
