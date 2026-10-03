@@ -112,6 +112,24 @@ def v5_tabla_cursos(con):
     """)
 
 
+def v5_tabla_matriculas(con):
+    """v5.0 R04: matrícula = alumno + curso + periodo académico.
+
+    UNIQUE(gno, curso_id, periodo) impide matricular dos veces lo mismo; las
+    claves foráneas impiden matricular a un alumno o curso inexistente y
+    borrar un alumno o curso que tiene matrículas."""
+    con.executescript("""
+        CREATE TABLE IF NOT EXISTS Matricula(
+            id INTEGER PRIMARY KEY,
+            gno INTEGER NOT NULL REFERENCES StudentData(gno) ON UPDATE CASCADE ON DELETE RESTRICT,
+            curso_id INTEGER NOT NULL REFERENCES Curso(id) ON DELETE RESTRICT,
+            periodo TEXT NOT NULL,
+            fecha TEXT NOT NULL,
+            UNIQUE(gno, curso_id, periodo));
+        CREATE INDEX IF NOT EXISTS ix_Matricula_curso ON Matricula(curso_id);
+    """)
+
+
 def migrar(con):
     for tabla in v2_columna_foto(con):
         print(f"[migración v2] {tabla}: columna photo_blob agregada")
@@ -123,3 +141,4 @@ def migrar(con):
     for tabla, columna, repetidos in v5_indices_unicos(con):
         print(f"[migración v5] AVISO {tabla}.{columna} tiene valores repetidos {repetidos}: corrígelos")
     v5_tabla_cursos(con)
+    v5_tabla_matriculas(con)

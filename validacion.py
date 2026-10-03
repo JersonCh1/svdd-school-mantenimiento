@@ -77,6 +77,10 @@ REGLAS["principal"] = REGLAS["teacher"]
 REGLAS["curso"] = dict(obligatorios=("codigo", "nombre"), enteros=("trno",),
                        patrones={"codigo": (r"[A-Z0-9-]{2,12}",
                                             "Código debe tener de 2 a 12 letras, números o guiones (por ejemplo MAT-10).")})
+REGLAS["matricula"] = dict(obligatorios=("gno", "curso_id", "periodo"), enteros=("gno", "curso_id"),
+                           nombres={"gno": "Alumno"},
+                           patrones={"periodo": (r"\d{4}-(I|II)",
+                                                 "Periodo debe tener el formato año-I o año-II (por ejemplo 2026-II).")})
 
 FORMATO_FECHA = "%d/%m/%Y"
 
@@ -98,16 +102,17 @@ def errores_registro(tipo, datos, parcial=False):
     Con parcial=True solo se revisan las columnas presentes en 'datos' (edición
     de un solo campo). Devuelve [(columna, mensaje)]; vacía si todo es válido."""
     reglas = REGLAS[tipo]
+    nombres = {**NOMBRES, **reglas.get("nombres", {})}
     errores = []
     for col in reglas.get("obligatorios", ()):
         if (col in datos or not parcial) and _vacio(datos.get(col)):
-            errores.append((col, f"{NOMBRES[col]} es obligatorio."))
+            errores.append((col, f"{nombres[col]} es obligatorio."))
     for col, valor in datos.items():
         if _vacio(valor) or any(c == col for c, _m in errores):
             continue
         texto = str(valor).strip()
         if col in reglas.get("enteros", ()) and not (texto.isdigit() and int(texto) > 0):
-            errores.append((col, f"{NOMBRES[col]} debe ser un número entero positivo."))
+            errores.append((col, f"{nombres[col]} debe ser un número entero positivo."))
         elif col in reglas.get("decimales", ()) and not re.fullmatch(r"\d+([.,]\d+)?", texto):
             errores.append((col, f"{NOMBRES[col]} debe ser un número (por ejemplo 155.5)."))
         elif col in reglas.get("fechas", ()) and not fecha_valida(texto):
@@ -119,6 +124,12 @@ def errores_registro(tipo, datos, parcial=False):
             if error:
                 errores.append((col, error))
     return errores
+
+
+def periodo_actual(hoy=None):
+    """Periodo académico de una fecha: enero-julio es el I, agosto-diciembre el II."""
+    hoy = hoy or datetime.now()
+    return f"{hoy.year}-{'I' if hoy.month <= 7 else 'II'}"
 
 
 def fecha_valida(texto):

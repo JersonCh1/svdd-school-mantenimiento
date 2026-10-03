@@ -17,7 +17,7 @@ import fotos
 from db import TABLAS, BaseDeDatosOcupada, ErrorIntegridad
 from navegacion import Navegador
 from gestion import REGISTROS, ErrorValidacion, Gestion
-from validacion import configurar_numerico, errores_registro
+from validacion import configurar_numerico, errores_registro, periodo_actual
 
 FONDO = '#583830'
 FONDO_LOGIN = '#897C78'
@@ -73,6 +73,9 @@ LISTADOS = {
         ("staught", "Cursos que dicta", 200), ("username", "Usuario", 120)]),
     "curso": dict(titulo="Gestión de cursos", quien="curso", columnas=[
         ("codigo", "Código", 90), ("nombre", "Curso", 200), ("grado", "Grado", 80), ("docente", "Docente", 180)]),
+    "matricula": dict(titulo="Matrículas", quien="matrícula", editable=False, columnas=[
+        ("periodo", "Periodo", 80), ("gno", "N.° registro", 90), ("alumno", "Alumno", 180),
+        ("codigo", "Código", 80), ("curso", "Curso", 160), ("grado", "Grado", 70), ("fecha", "Fecha", 100)]),
 }
 
 # Formularios de edición: qué tabla, cómo se identifica el registro y qué campos se pueden cambiar.
@@ -250,7 +253,8 @@ class Aplicacion:
                         ("Docentes", lambda: self.mostrar_gestion("teacher"))]
         if rol in ("principal", "teacher"):
             botones += [("Alumnos", lambda: self.mostrar_gestion("student")),
-                        ("Cursos", lambda: self.mostrar_gestion("curso"))]
+                        ("Cursos", lambda: self.mostrar_gestion("curso")),
+                        ("Matrículas", lambda: self.mostrar_gestion("matricula"))]
         self.barra_botones(p, botones)
         self.nav.ajustar(minimo=(640, 0))
 
@@ -320,18 +324,24 @@ class Aplicacion:
             if clave is None:
                 return
             descripcion = " ".join(str(v) for v in tabla.item(str(clave), "values")[:3])
+            accion = "Anular la" if tipo == "matricula" else "Eliminar el"
             if not messagebox.askyesno("Confirmar eliminación",
-                                       f"¿Eliminar al {conf['quien']} {descripcion}?\n"
+                                       f"¿{accion} {conf['quien']} {descripcion}?\n"
                                        "Esta acción no se puede deshacer.", parent=p):
                 return
             if self.ejecutar(p, lambda: self.gestion.eliminar(tipo, clave)):
-                messagebox.showinfo("Eliminado", f"Se eliminó el {conf['quien']}.", parent=p)
+                hecho = "Se anuló la" if tipo == "matricula" else "Se eliminó el"
+                messagebox.showinfo("Hecho", f"{hecho} {conf['quien']}.", parent=p)
                 cargar()
 
-        tabla.bind("<Double-1>", lambda _e: editar())
         cargar()
-        self.barra_botones(p, [("Volver", self.mostrar_panel), ("Nuevo", lambda: self.mostrar_formulario(tipo)),
-                               ("Editar", editar), ("Eliminar", eliminar)], fila=3)
+        botones = [("Volver", self.mostrar_panel), ("Nuevo", lambda: self.mostrar_formulario(tipo))]
+        if conf.get("editable", True):
+            tabla.bind("<Double-1>", lambda _e: editar())
+            botones += [("Editar", editar), ("Eliminar", eliminar)]
+        else:
+            botones += [("Anular", eliminar)]
+        self.barra_botones(p, botones, fila=3)
         self.nav.ajustar(minimo=(760, 460))
 
     def ejecutar(self, p, operacion):
@@ -355,6 +365,9 @@ class Aplicacion:
         """Sin 'clave' es un alta; con 'clave' se cargan los datos para editarlos."""
         if tipo == "curso":
             self.mostrar_formulario_curso(clave)
+            return
+        if tipo == "matricula":
+            self.mostrar_formulario_matricula()
             return
         rol = ROLES[self.nav.sesion[0]]
         registro = self.gestion.obtener(tipo, clave) if clave is not None else None
@@ -485,6 +498,50 @@ class Aplicacion:
         self.barra_botones(p, [("Volver", lambda: self.mostrar_gestion("curso", seleccion=clave)),
                                ("Guardar", guardar)], fila=3)
         campos["codigo"].focus_set()
+        self.nav.ajustar(minimo=(640, 0))
+
+    # --- registro de matrícula (R04) -----------------------------------------
+
+    def mostrar_formulario_matricula(self):
+        p, cuerpo = self.formulario_simple("Nueva matrícula")
+        alumnos = [(f["gno"], f"{f['gno']} · {f['name']} {f['lname']}") for f in self.gestion.listar("student")]
+        cursos = [(f["clave"], f"{f['codigo']} · {f['nombre']}" + (f" ({f['grado']})" if f["grado"] else ""))
+                  for f in self.gestion.listar("curso")]
+        campos = {}
+        for i, (texto, col, opciones) in enumerate((("Alumno:", "gno", alumnos), ("Curso:", "curso_id", cursos))):
+            etiqueta(cuerpo, texto).grid(row=i, column=0, sticky="w", pady=5, padx=(0, 8))
+            campos[col] = ttk.Combobox(cuerpo, state="readonly", width=36, font=F_VALOR, values=[t for _k, t in opciones])
+            campos[col].grid(row=i, column=1, sticky="ew")
+        etiqueta(cuerpo, "Periodo:").grid(row=2, column=0, sticky="w", pady=5, padx=(0, 8))
+        periodo = tk.Entry(cuerpo, width=12, font=F_VALOR, fg=TEXTO, bg=VALOR)
+        periodo.insert(0, periodo_actual())
+        periodo.grid(row=2, column=1, sticky="w")
+        if not cursos:
+            tk.Label(cuerpo, text="Todavía no hay cursos: regístralos primero en «Cursos».", font=F_VALOR,
+                     fg=VALOR, bg=FONDO).grid(row=3, column=0, columnspan=2, sticky="w", pady=(8, 0))
+
+        def elegido(col, opciones):
+            i = campos[col].current()
+            return "" if i < 0 else str(opciones[i][0])
+
+        def guardar():
+            datos = {"gno": elegido("gno", alumnos), "curso_id": elegido("curso_id", cursos), "periodo": periodo.get()}
+            try:
+                self.gestion.registrar("matricula", datos)
+            except ErrorValidacion as e:
+                marcar_errores(p, {"periodo": periodo}, e.errores)
+                return
+            except (ErrorIntegridad, BaseDeDatosOcupada) as e:
+                messagebox.showerror("No se guardó", f"{e}\nNo se guardó ningún cambio.", parent=p)
+                return
+            messagebox.showinfo("Matrícula registrada",
+                                f"Se matriculó a {campos['gno'].get()} en {campos['curso_id'].get()} "
+                                f"({periodo.get().strip().upper()}).", parent=p)
+            # Se queda en el formulario para matricular al mismo alumno en otro curso.
+            campos["curso_id"].set("")
+
+        self.barra_botones(p, [("Volver", lambda: self.mostrar_gestion("matricula")),
+                               ("Registrar", guardar)], fila=3)
         self.nav.ajustar(minimo=(640, 0))
 
     # --- edición de un campo -------------------------------------------------
