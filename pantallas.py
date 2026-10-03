@@ -16,13 +16,15 @@ from tkinter import messagebox
 import fotos
 from db import TABLAS, BaseDeDatosOcupada, ErrorIntegridad
 from navegacion import Navegador
-from validacion import configurar_numerico, error_numerico
+from gestion import ErrorValidacion, Gestion
+from validacion import configurar_numerico, errores_registro
 
 FONDO = '#583830'
 FONDO_LOGIN = '#897C78'
 ETIQUETA = '#C7A196'
 VALOR = '#FDD4B8'
 TEXTO = '#18120F'
+ERROR = '#F2A7A0'
 F_TITULO = ("PT Sans", 20, "bold")
 F_ETIQUETA = ("Cambria", 14, "bold")
 F_VALOR = ("Cambria", 14)
@@ -70,6 +72,7 @@ EDICIONES = {
     "personal": dict(tabla="PrincipalData", clave="trno", rol="principal",
                      nombre="Tu nombre:", registro="Tu N.° de registro:"),
 }
+ROL_DE_EDICION = {"student": "student", "teacher": "teacher", "personal": "principal"}
 for _tipo, _conf in EDICIONES.items():
     _campos = CAMPOS["student" if _tipo == "student" else ("principal" if _tipo == "personal" else "teacher")]
     _conf["opciones"] = [(etq.rstrip(":"), col) for fila in _campos for etq, col, *_ in fila]
@@ -101,6 +104,21 @@ def texto_de(widget):
     return widget.get()
 
 
+def marcar_errores(padre, campos, errores, titulo="Revisa los datos"):
+    """v5.0 R06: pinta los campos con error, pone el cursor en el primero y
+    explica todos los problemas juntos. No se borra nada de lo escrito: el
+    usuario corrige solo lo marcado."""
+    malos = {col for col, _m in errores}
+    for col, w in campos.items():
+        w.configure(bg=ERROR if col in malos else VALOR)
+    for col, _m in errores:
+        if col in campos:
+            campos[col].focus_set()
+            break
+    detalle = "\n".join(f"• {m}" for _c, m in errores)
+    messagebox.showerror(titulo, f"No se guardó. Corrige lo siguiente:\n\n{detalle}", parent=padre)
+
+
 def filas_de_campos(padre, filas, crear_valor, desde=0):
     """Una fila de la grilla por cada fila de campos. La columna de cada valor
     tiene peso 1: al agrandar la ventana, los valores ocupan el espacio extra."""
@@ -123,6 +141,7 @@ class Aplicacion:
         self.root = root
         self.db = db
         self.nav = Navegador(root)
+        self.gestion = Gestion(db)
         self.rol = tk.IntVar(root)
 
     # --- login ------------------------------------------------------------
@@ -274,15 +293,13 @@ class Aplicacion:
 
         def guardar():
             datos = {col: texto_de(w) for col, w in campos.items()}
-            for columna in ("mno", "adno"):
-                error = error_numerico(columna, datos[columna])
-                if error:
-                    messagebox.showerror("Dato no válido", error, parent=p)
-                    return
             datos.update({clave: w.get() for clave, w in cuenta.items()})
             datos.update(photo=selector.nombre, photo_blob=selector.datos)
             try:
-                self.db.insertar(TABLAS[tipo], datos)
+                self.gestion.registrar_persona(tipo, datos)
+            except ErrorValidacion as e:
+                marcar_errores(p, {**campos, **cuenta}, e.errores)
+                return
             except BaseDeDatosOcupada as e:
                 messagebox.showerror("Base de datos ocupada", str(e), parent=p)
                 return
@@ -345,9 +362,9 @@ class Aplicacion:
 
         def actualizar():
             columna, valor = estado["columna"], nuevo.get("1.0", "end-1c")
-            error = error_numerico(columna, valor)
-            if error:
-                messagebox.showerror("Dato no válido", error, parent=p)
+            errores = errores_registro(ROL_DE_EDICION[tipo], {columna: valor}, parcial=True)
+            if errores:
+                messagebox.showerror("Dato no válido", errores[0][1], parent=p)
                 return
             if columna in ("mno", "adno"):
                 valor = valor.strip()

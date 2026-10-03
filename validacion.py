@@ -6,7 +6,9 @@ dos capas:
   2. Al guardar: se comprueba la longitud exacta y se muestra un mensaje claro.
 """
 
+import re
 import tkinter as tk
+from datetime import datetime
 
 LONGITUDES = {
     "mno": (10, "El celular", "10 dígitos"),
@@ -53,3 +55,85 @@ def error_numerico(columna, valor):
     if len(valor) != longitud:
         return f"{etiqueta} debe tener exactamente {texto}; ingresaste {len(valor)}."
     return None
+
+
+# --- v5.0 R06: validación de cada registro antes de guardarlo ---------------
+
+NOMBRES = {
+    "name": "Nombre", "lname": "Apellido", "username": "Usuario", "password": "Contraseña",
+    "gno": "N.° de registro general", "trno": "N.° de registro docente", "rno": "N.° de lista",
+    "hei": "Estatura", "wei": "Peso", "dob": "Fecha de nacimiento", "doa": "Fecha de ingreso al colegio",
+    "codigo": "Código", "nombre": "Nombre del curso", "gno_alumno": "Alumno",
+    "curso_id": "Curso", "periodo": "Periodo",
+}
+
+REGLAS = {
+    "student": dict(obligatorios=("name", "lname", "gno", "username", "password"),
+                    enteros=("gno", "rno"), decimales=("hei", "wei"), fechas=("dob", "doa")),
+    "teacher": dict(obligatorios=("name", "lname", "trno", "username", "password"),
+                    enteros=("trno",), fechas=("dob",)),
+}
+REGLAS["principal"] = REGLAS["teacher"]
+
+FORMATO_FECHA = "%d/%m/%Y"
+
+
+class ErrorValidacion(Exception):
+    """Uno o más campos no son válidos. 'errores' es una lista (columna, mensaje)."""
+
+    def __init__(self, errores):
+        self.errores = errores
+        super().__init__("\n".join(m for _c, m in errores))
+
+
+def _vacio(valor):
+    return valor is None or str(valor).strip() == ""
+
+
+def errores_registro(tipo, datos, parcial=False):
+    """Revisa obligatorios y formatos según las reglas del tipo de registro.
+    Con parcial=True solo se revisan las columnas presentes en 'datos' (edición
+    de un solo campo). Devuelve [(columna, mensaje)]; vacía si todo es válido."""
+    reglas = REGLAS[tipo]
+    errores = []
+    for col in reglas.get("obligatorios", ()):
+        if (col in datos or not parcial) and _vacio(datos.get(col)):
+            errores.append((col, f"{NOMBRES[col]} es obligatorio."))
+    for col, valor in datos.items():
+        if _vacio(valor) or any(c == col for c, _m in errores):
+            continue
+        texto = str(valor).strip()
+        if col in reglas.get("enteros", ()) and not (texto.isdigit() and int(texto) > 0):
+            errores.append((col, f"{NOMBRES[col]} debe ser un número entero positivo."))
+        elif col in reglas.get("decimales", ()) and not re.fullmatch(r"\d+([.,]\d+)?", texto):
+            errores.append((col, f"{NOMBRES[col]} debe ser un número (por ejemplo 155.5)."))
+        elif col in reglas.get("fechas", ()) and not fecha_valida(texto):
+            errores.append((col, f"{NOMBRES[col]} debe tener el formato dd/mm/aaaa (por ejemplo 24/07/1968)."))
+        elif col in LONGITUDES:
+            error = error_numerico(col, texto)
+            if error:
+                errores.append((col, error))
+    return errores
+
+
+def fecha_valida(texto):
+    try:
+        datetime.strptime(texto, FORMATO_FECHA)
+    except ValueError:
+        return False
+    return len(texto) == 10
+
+
+def normalizar(tipo, datos):
+    """Quita espacios sobrantes y convierte números; un campo vacío se guarda como NULL."""
+    reglas = REGLAS[tipo]
+    limpio = {}
+    for col, valor in datos.items():
+        if isinstance(valor, str):
+            valor = valor.strip() or None
+        if valor is not None and col in reglas.get("enteros", ()):
+            valor = int(valor)
+        elif valor is not None and col in reglas.get("decimales", ()):
+            valor = float(str(valor).replace(",", "."))
+        limpio[col] = valor
+    return limpio
