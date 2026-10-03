@@ -67,15 +67,15 @@ class DuplicadosTest(unittest.TestCase):
 
     def test_usuario_y_registro_repetidos(self):
         with self.assertRaises(ErrorValidacion) as e:
-            self.g.registrar_persona("student", {**ALUMNO, "gno": "3644", "username": "Rushabh123"})
+            self.g.registrar("student", {**ALUMNO, "gno": "3644", "username": "Rushabh123"})
         self.assertEqual(columnas(e.exception.errores), ["gno", "username"])
 
     def test_al_editar_no_es_duplicado_de_si_mismo(self):
         datos = {**ALUMNO, "gno": "3644", "username": "Rushabh123"}
-        self.assertEqual(self.g.validar_persona("student", datos, original=3644)["gno"], 3644)
+        self.assertEqual(self.g.validar("student", datos, original=3644)["gno"], 3644)
 
     def test_alta_valida_se_guarda(self):
-        self.g.registrar_persona("student", ALUMNO)
+        self.g.registrar("student", ALUMNO)
         self.assertEqual(self.db.uno("SELECT name FROM StudentData WHERE gno = 5001")[0], "Lucía")
 
 

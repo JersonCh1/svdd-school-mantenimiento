@@ -16,7 +16,7 @@ from tkinter import messagebox, ttk
 import fotos
 from db import TABLAS, BaseDeDatosOcupada, ErrorIntegridad
 from navegacion import Navegador
-from gestion import PERSONAS, ErrorValidacion, Gestion
+from gestion import REGISTROS, ErrorValidacion, Gestion
 from validacion import configurar_numerico, errores_registro
 
 FONDO = '#583830'
@@ -71,6 +71,8 @@ LISTADOS = {
     "teacher": dict(titulo="Gestión de docentes", quien="docente", columnas=[
         ("trno", "N.° registro", 90), ("name", "Nombre", 130), ("lname", "Apellido", 130),
         ("staught", "Cursos que dicta", 200), ("username", "Usuario", 120)]),
+    "curso": dict(titulo="Gestión de cursos", quien="curso", columnas=[
+        ("codigo", "Código", 90), ("nombre", "Curso", 200), ("grado", "Grado", 80), ("docente", "Docente", 180)]),
 }
 
 # Formularios de edición: qué tabla, cómo se identifica el registro y qué campos se pueden cambiar.
@@ -247,7 +249,8 @@ class Aplicacion:
             botones += [("Editar mis datos", lambda: self.mostrar_edicion("personal")),
                         ("Docentes", lambda: self.mostrar_gestion("teacher"))]
         if rol in ("principal", "teacher"):
-            botones += [("Alumnos", lambda: self.mostrar_gestion("student"))]
+            botones += [("Alumnos", lambda: self.mostrar_gestion("student")),
+                        ("Cursos", lambda: self.mostrar_gestion("curso"))]
         self.barra_botones(p, botones)
         self.nav.ajustar(minimo=(640, 0))
 
@@ -285,10 +288,14 @@ class Aplicacion:
         aviso = tk.Label(cuerpo, text="", font=F_VALOR, fg=VALOR, bg=FONDO, anchor="w")
         aviso.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 0))
 
+        claves = {}  # iid del Treeview (texto) -> clave real del registro
+
         def cargar():
             tabla.delete(*tabla.get_children())
+            claves.clear()
             filas = self.gestion.listar(tipo)
             for fila in filas:
+                claves[str(fila["clave"])] = fila["clave"]
                 tabla.insert("", "end", iid=str(fila["clave"]),
                              values=["" if fila[c] is None else fila[c] for c in columnas])
             aviso.configure(text=f"{len(filas)} registro(s).")
@@ -301,7 +308,7 @@ class Aplicacion:
             if not sel:
                 messagebox.showerror("Falta elegir", f"Selecciona en la lista el {conf['quien']}.", parent=p)
                 return None
-            return sel[0]
+            return claves[sel[0]]
 
         def editar():
             clave = elegido()
@@ -312,7 +319,7 @@ class Aplicacion:
             clave = elegido()
             if clave is None:
                 return
-            descripcion = " ".join(str(v) for v in tabla.item(clave, "values")[:3])
+            descripcion = " ".join(str(v) for v in tabla.item(str(clave), "values")[:3])
             if not messagebox.askyesno("Confirmar eliminación",
                                        f"¿Eliminar al {conf['quien']} {descripcion}?\n"
                                        "Esta acción no se puede deshacer.", parent=p):
@@ -346,6 +353,9 @@ class Aplicacion:
 
     def mostrar_formulario(self, tipo, clave=None):
         """Sin 'clave' es un alta; con 'clave' se cargan los datos para editarlos."""
+        if tipo == "curso":
+            self.mostrar_formulario_curso(clave)
+            return
         rol = ROLES[self.nav.sesion[0]]
         registro = self.gestion.obtener(tipo, clave) if clave is not None else None
         p = self.nav.pantalla()
@@ -399,9 +409,9 @@ class Aplicacion:
             datos.update(photo=selector.nombre, photo_blob=selector.datos)
             try:
                 if registro is None:
-                    guardados = self.gestion.registrar_persona(tipo, datos)
+                    guardados = self.gestion.registrar(tipo, datos)
                 else:
-                    guardados = self.gestion.actualizar_persona(tipo, clave, datos)
+                    guardados = self.gestion.actualizar(tipo, clave, datos)
             except ErrorValidacion as e:
                 marcar_errores(p, {**campos, **cuenta}, e.errores)
                 return
@@ -415,11 +425,67 @@ class Aplicacion:
                 messagebox.showinfo("Registro guardado", f"Se registraron los datos del nuevo {quien}.", parent=p)
             else:
                 messagebox.showinfo("Registro actualizado", f"Se actualizaron los datos del {quien}.", parent=p)
-            self.mostrar_gestion(tipo, seleccion=guardados[PERSONAS[tipo]["clave"]])
+            self.mostrar_gestion(tipo, seleccion=guardados[REGISTROS[tipo]["clave"]])
 
         self.barra_botones(p, [("Volver", lambda: self.mostrar_gestion(tipo, seleccion=clave)),
                                ("Guardar", guardar)])
         self.nav.ajustar(minimo=(760, 0))
+
+    # --- formulario de curso (R03) ------------------------------------------
+
+    def formulario_simple(self, titulo):
+        """Pantalla con título y una grilla de dos columnas (etiqueta, valor)."""
+        p = self.nav.pantalla()
+        p.columnconfigure(0, weight=1)
+        p.rowconfigure(2, weight=1)
+        self.encabezado(p, ROLES[self.nav.sesion[0]])
+        tk.Label(p, text=titulo, font=F_ETIQUETA, fg=VALOR, bg=FONDO, anchor="w").grid(
+            row=1, column=0, sticky="ew", padx=14, pady=(10, 0))
+        cuerpo = tk.Frame(p, bg=FONDO)
+        cuerpo.grid(row=2, column=0, sticky="nsew", padx=14, pady=10)
+        cuerpo.columnconfigure(1, weight=1)
+        return p, cuerpo
+
+    def mostrar_formulario_curso(self, clave=None):
+        curso = self.gestion.obtener("curso", clave) if clave is not None else None
+        p, cuerpo = self.formulario_simple("Editar curso" if curso else "Nuevo curso")
+        campos = {}
+        for i, (texto, col) in enumerate((("Código:", "codigo"), ("Nombre del curso:", "nombre"), ("Grado:", "grado"))):
+            etiqueta(cuerpo, texto).grid(row=i, column=0, sticky="w", pady=5, padx=(0, 8))
+            campos[col] = tk.Entry(cuerpo, width=30, font=F_VALOR, fg=TEXTO, bg=VALOR)
+            campos[col].grid(row=i, column=1, sticky="ew")
+            if curso is not None and curso[col] is not None:
+                campos[col].insert(0, str(curso[col]))
+        etiqueta(cuerpo, "Docente a cargo:").grid(row=3, column=0, sticky="w", pady=5, padx=(0, 8))
+        docentes = [(None, "— Sin asignar —")] + [
+            (f["trno"], f"{f['trno']} · {f['name']} {f['lname']}") for f in self.gestion.listar("teacher")]
+        docente = ttk.Combobox(cuerpo, state="readonly", font=F_VALOR, values=[t for _k, t in docentes])
+        docente.grid(row=3, column=1, sticky="ew")
+        actual = curso["trno"] if curso is not None else None
+        docente.current(next((i for i, (k, _t) in enumerate(docentes) if k == actual), 0))
+
+        def guardar():
+            datos = {col: w.get() for col, w in campos.items()}
+            trno = docentes[docente.current()][0]
+            datos["trno"] = "" if trno is None else str(trno)
+            try:
+                if curso is None:
+                    guardado = self.gestion.registrar("curso", datos)
+                else:
+                    guardado = self.gestion.actualizar("curso", clave, datos)
+            except ErrorValidacion as e:
+                marcar_errores(p, campos, e.errores)
+                return
+            except (ErrorIntegridad, BaseDeDatosOcupada) as e:
+                messagebox.showerror("No se guardó", f"{e}\nNo se guardó ningún cambio.", parent=p)
+                return
+            messagebox.showinfo("Curso guardado", f"Se guardó el curso {guardado['codigo']}.", parent=p)
+            self.mostrar_gestion("curso", seleccion=guardado["id"])
+
+        self.barra_botones(p, [("Volver", lambda: self.mostrar_gestion("curso", seleccion=clave)),
+                               ("Guardar", guardar)], fila=3)
+        campos["codigo"].focus_set()
+        self.nav.ajustar(minimo=(640, 0))
 
     # --- edición de un campo -------------------------------------------------
 

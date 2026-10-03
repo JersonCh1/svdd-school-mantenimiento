@@ -95,6 +95,23 @@ def v5_indices_unicos(con):
     return avisos
 
 
+def v5_tabla_cursos(con):
+    """v5.0 R03: cursos con identificador único (id interno + código único).
+
+    El docente a cargo es una clave foránea: no se puede eliminar un docente
+    que tiene cursos (ON DELETE RESTRICT) y, si cambia su N.° de registro,
+    el curso lo sigue (ON UPDATE CASCADE)."""
+    con.executescript("""
+        CREATE TABLE IF NOT EXISTS Curso(
+            id INTEGER PRIMARY KEY,
+            codigo TEXT NOT NULL UNIQUE,
+            nombre TEXT NOT NULL,
+            grado TEXT,
+            trno INTEGER REFERENCES TeacherData(trno) ON UPDATE CASCADE ON DELETE RESTRICT);
+        CREATE INDEX IF NOT EXISTS ix_Curso_trno ON Curso(trno);
+    """)
+
+
 def migrar(con):
     for tabla in v2_columna_foto(con):
         print(f"[migración v2] {tabla}: columna photo_blob agregada")
@@ -105,3 +122,4 @@ def migrar(con):
         print(f"[migración v5] {tabla}: {cantidad} copia(s) exacta(s) eliminada(s)")
     for tabla, columna, repetidos in v5_indices_unicos(con):
         print(f"[migración v5] AVISO {tabla}.{columna} tiene valores repetidos {repetidos}: corrígelos")
+    v5_tabla_cursos(con)

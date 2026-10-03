@@ -74,6 +74,9 @@ REGLAS = {
                     enteros=("trno",), fechas=("dob",)),
 }
 REGLAS["principal"] = REGLAS["teacher"]
+REGLAS["curso"] = dict(obligatorios=("codigo", "nombre"), enteros=("trno",),
+                       patrones={"codigo": (r"[A-Z0-9-]{2,12}",
+                                            "Código debe tener de 2 a 12 letras, números o guiones (por ejemplo MAT-10).")})
 
 FORMATO_FECHA = "%d/%m/%Y"
 
@@ -109,6 +112,8 @@ def errores_registro(tipo, datos, parcial=False):
             errores.append((col, f"{NOMBRES[col]} debe ser un número (por ejemplo 155.5)."))
         elif col in reglas.get("fechas", ()) and not fecha_valida(texto):
             errores.append((col, f"{NOMBRES[col]} debe tener el formato dd/mm/aaaa (por ejemplo 24/07/1968)."))
+        elif col in reglas.get("patrones", {}) and not re.fullmatch(reglas["patrones"][col][0], texto.upper()):
+            errores.append((col, reglas["patrones"][col][1]))
         elif col in LONGITUDES:
             error = error_numerico(col, texto)
             if error:
@@ -131,6 +136,8 @@ def normalizar(tipo, datos):
     for col, valor in datos.items():
         if isinstance(valor, str):
             valor = valor.strip() or None
+        if valor is not None and col in reglas.get("patrones", {}):
+            valor = valor.upper()
         if valor is not None and col in reglas.get("enteros", ()):
             valor = int(valor)
         elif valor is not None and col in reglas.get("decimales", ()):

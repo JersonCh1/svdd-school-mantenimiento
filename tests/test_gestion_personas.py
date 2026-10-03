@@ -45,8 +45,8 @@ class AlumnosTest(BaseTest):
         self.assertEqual(len(claves), 7)
 
     def test_ciclo_completo(self):
-        self.g.registrar_persona("student", self.ALUMNO)
-        self.g.actualizar_persona("student", 5001, {**self.ALUMNO, "gno": "5002", "std": "6th"})
+        self.g.registrar("student", self.ALUMNO)
+        self.g.actualizar("student", 5001, {**self.ALUMNO, "gno": "5002", "std": "6th"})
         self.assertIsNone(self.g.obtener("student", 5001))
         self.assertEqual(self.g.obtener("student", 5002)["std"], "6th")
         self.assertEqual(self.g.eliminar("student", 5002), 1)
@@ -54,7 +54,7 @@ class AlumnosTest(BaseTest):
 
     def test_editar_registro_borrado(self):
         with self.assertRaisesRegex(ErrorValidacion, "ya no existe"):
-            self.g.actualizar_persona("student", 9876, self.ALUMNO)
+            self.g.actualizar("student", 9876, self.ALUMNO)
 
 
 class DocentesTest(BaseTest):
@@ -62,22 +62,22 @@ class DocentesTest(BaseTest):
                "dob": "05/05/1985", "mno": "9123456780"}
 
     def test_alta_edicion_y_baja(self):
-        self.g.registrar_persona("teacher", self.DOCENTE)
-        self.g.actualizar_persona("teacher", 3030, {**self.DOCENTE, "staught": "Historia"})
+        self.g.registrar("teacher", self.DOCENTE)
+        self.g.actualizar("teacher", 3030, {**self.DOCENTE, "staught": "Historia"})
         self.assertEqual(self.g.obtener("teacher", 3030)["staught"], "Historia")
         self.g.eliminar("teacher", 3030)
         self.assertIsNone(self.g.obtener("teacher", 3030))
 
     def test_obligatorios_y_duplicados(self):
         with self.assertRaises(ErrorValidacion) as e:
-            self.g.registrar_persona("teacher", {**self.DOCENTE, "trno": "9999", "password": ""})
+            self.g.registrar("teacher", {**self.DOCENTE, "trno": "9999", "password": ""})
         self.assertEqual([c for c, _m in e.exception.errores], ["password"])
         with self.assertRaises(ErrorValidacion) as e:
-            self.g.registrar_persona("teacher", {**self.DOCENTE, "trno": "9999", "username": "Darshi999"})
+            self.g.registrar("teacher", {**self.DOCENTE, "trno": "9999", "username": "Darshi999"})
         self.assertEqual([c for c, _m in e.exception.errores], ["trno", "username"])
 
     def test_los_cambios_quedan_en_sqlite(self):
-        self.g.registrar_persona("teacher", self.DOCENTE)
+        self.g.registrar("teacher", self.DOCENTE)
         BaseDatos.cerrar()
         self.db = BaseDatos(self.ruta)
         self.assertEqual(Gestion(self.db).obtener("teacher", 3030)["name"], "Luis")

@@ -8,12 +8,17 @@ Cada operación valida primero (R06) y escribe dentro de una transacción
 from db import ErrorIntegridad
 from validacion import ErrorValidacion, errores_registro, normalizar
 
-PERSONAS = {
-    "student": dict(tabla="StudentData", clave="gno", quien="alumno",
-                    listado=("gno", "name", "lname", "std", "div", "username")),
-    "teacher": dict(tabla="TeacherData", clave="trno", quien="docente",
-                    listado=("trno", "name", "lname", "staught", "username")),
+REGISTROS = {
+    "student": dict(tabla="StudentData", clave="gno", quien="alumno", orden="name COLLATE NOCASE, lname COLLATE NOCASE",
+                    listado="SELECT gno AS clave, gno, name, lname, std, div, username FROM StudentData"),
+    "teacher": dict(tabla="TeacherData", clave="trno", quien="docente", orden="name COLLATE NOCASE, lname COLLATE NOCASE",
+                    listado="SELECT trno AS clave, trno, name, lname, staught, username FROM TeacherData"),
+    "curso": dict(tabla="Curso", clave="id", quien="curso", orden="c.codigo",
+                  listado="SELECT c.id AS clave, c.codigo, c.nombre, c.grado, c.trno, "
+                          "TRIM(COALESCE(t.name, '') || ' ' || COALESCE(t.lname, '')) AS docente "
+                          "FROM Curso c LEFT JOIN TeacherData t ON t.trno = c.trno"),
 }
+PERSONAS = {t: REGISTROS[t] for t in ("student", "teacher")}
 
 # Columnas que no pueden repetirse dentro de cada tabla, con el texto del mensaje.
 UNICAS = {
@@ -21,6 +26,13 @@ UNICAS = {
                 ("username", "Ese usuario ya está en uso por otro alumno.")),
     "teacher": (("trno", "Ya existe un docente con ese N.° de registro docente."),
                 ("username", "Ese usuario ya está en uso por otro docente.")),
+    "curso": (("codigo", "Ya existe un curso con ese código."),),
+}
+
+# Antes de eliminar se revisan las relaciones (consulta que cuenta, mensaje).
+RELACIONES = {
+    "teacher": (("SELECT COUNT(*) FROM Curso WHERE trno = ?",
+                 "El docente tiene {n} curso(s) a su cargo. Asigna esos cursos a otro docente antes de eliminarlo."),),
 }
 
 
@@ -30,7 +42,7 @@ class Gestion:
 
     # --- validación (R06) ------------------------------------------------
 
-    def validar_persona(self, tipo, datos, original=None):
+    def validar(self, tipo, datos, original=None):
         """Devuelve los datos normalizados o lanza ErrorValidacion con TODOS
         los problemas encontrados (no solo el primero). 'original' es la clave
         del registro que se está editando: no cuenta como duplicado de sí mismo."""
@@ -38,7 +50,7 @@ class Gestion:
         if errores:
             raise ErrorValidacion(errores)
         datos = normalizar(tipo, datos)
-        conf = PERSONAS[tipo]
+        conf = REGISTROS[tipo]
         for columna, mensaje in UNICAS[tipo]:
             if columna not in datos:
                 continue
@@ -49,41 +61,54 @@ class Gestion:
                 params.append(original)
             if self.db.uno(sql, params):
                 errores.append((columna, mensaje))
+        if tipo == "curso" and datos.get("trno") is not None and \
+                not self.db.uno("SELECT 1 FROM TeacherData WHERE trno = ?", (datos["trno"],)):
+            errores.append(("trno", "El docente elegido no está registrado."))
         if errores:
             raise ErrorValidacion(errores)
         return datos
 
-    # --- personas (R01 alumnos, R02 docentes) -----------------------------
+    # --- registrar, consultar, actualizar y eliminar ------------------------
+    # R01 alumnos, R02 docentes, R03 cursos.
 
     def listar(self, tipo):
         """Filas para el listado: 'clave' identifica el registro."""
-        conf = PERSONAS[tipo]
-        return self.db.consultar(f"SELECT {conf['clave']} AS clave, {', '.join(conf['listado'])} "
-                                 f"FROM {conf['tabla']} ORDER BY name COLLATE NOCASE, lname COLLATE NOCASE")
+        conf = REGISTROS[tipo]
+        return self.db.consultar(f"{conf['listado']} ORDER BY {conf['orden']}")
 
     def obtener(self, tipo, clave):
-        conf = PERSONAS[tipo]
+        conf = REGISTROS[tipo]
         return self.db.uno(f"SELECT * FROM {conf['tabla']} WHERE {conf['clave']} = ?", (clave,))
 
-    def registrar_persona(self, tipo, datos):
-        datos = self.validar_persona(tipo, datos)
+    def registrar(self, tipo, datos):
+        datos = self.validar(tipo, datos)
         with self.db.transaccion():
-            self.db.insertar(PERSONAS[tipo]["tabla"], datos)
+            self.db.insertar(REGISTROS[tipo]["tabla"], datos)
+            if REGISTROS[tipo]["clave"] not in datos:  # id autogenerado (cursos)
+                datos[REGISTROS[tipo]["clave"]] = self.db.uno("SELECT last_insert_rowid()")[0]
         return datos
 
-    def actualizar_persona(self, tipo, original, datos):
-        """Reemplaza todos los datos del registro 'original' (su N.° de registro)."""
-        datos = self.validar_persona(tipo, datos, original=original)
-        conf = PERSONAS[tipo]
+    def actualizar(self, tipo, original, datos):
+        """Reemplaza los datos del registro cuya clave es 'original'."""
+        datos = self.validar(tipo, datos, original=original)
+        conf = REGISTROS[tipo]
         with self.db.transaccion():
             if self.db.actualizar_fila(conf["tabla"], datos, {conf["clave"]: original}) == 0:
                 raise ErrorValidacion([(conf["clave"], f"El {conf['quien']} ya no existe: quizá otro usuario lo eliminó.")])
+        datos.setdefault(conf["clave"], original)
         return datos
 
     def eliminar(self, tipo, clave):
-        conf = PERSONAS[tipo]
+        """Revisa primero las relaciones; si hay registros que dependen de este,
+        no borra nada y explica qué hay que hacer. La clave foránea de SQLite
+        es la segunda barrera (R07)."""
+        conf = REGISTROS[tipo]
         with self.db.transaccion():
+            for sql, mensaje in RELACIONES.get(tipo, ()):
+                n = self.db.uno(sql, (clave,))[0]
+                if n:
+                    raise ErrorValidacion([(conf["clave"], mensaje.format(n=n))])
             return self.db.eliminar(conf["tabla"], {conf["clave"]: clave})
 
 
-__all__ = ["Gestion", "ErrorValidacion", "ErrorIntegridad", "PERSONAS"]
+__all__ = ["Gestion", "ErrorValidacion", "ErrorIntegridad", "REGISTROS", "PERSONAS"]
