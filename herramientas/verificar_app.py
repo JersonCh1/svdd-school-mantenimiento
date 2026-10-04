@@ -71,7 +71,8 @@ def escenario(root, _globales):
     revisar(root, "panel director"); shot(os.path.join(OUT, "panel_director.png"), windows=[root])
     root.geometry("1350x760"); pump(root, .5); revisar(root, "panel director ancho")
 
-    btn(root, "Nuevo docente"); revisar(root, "alta docente")
+    btn(root, "Docentes"); revisar(root, "gestión docentes")
+    btn(root, "Nuevo"); revisar(root, "alta docente")
     campos = [w for w in walk(root) if isinstance(w, (tk.Entry, tk.Text))]
     valores = ["Luis", "Quispe", "Alberto", "Carmen", "05/05/1985", "Cusco", "luisq", "luis123", "Peruvian",
                "Catholic", "None", "Calle Mercaderes 200, Arequipa", "9123456780", "432143214321", "3030",
@@ -88,22 +89,34 @@ def escenario(root, _globales):
     if not fila or not fila[3]:
         PROBLEMAS.append(("alta docente", "no se guardó el registro o la foto"))
 
-    btn(root, "Volver"); btn(root, "Editar docente"); revisar(root, "editar docente")
-    [w for w in walk(root) if isinstance(w, tk.Listbox)][0].selection_set(10)
-    btn(root, "Elegir campo")
-    e = [w for w in walk(root) if isinstance(w, tk.Entry)]
-    e[0].insert(0, "Luis"); e[1].insert(0, "3030")
-    t = [w for w in walk(root) if isinstance(w, tk.Text)][0]
-    t.insert("1.0", "98765")
-    log("Celular corto:", with_dialogs(root, lambda: btn(root, "Actualizar"), [lambda *a: None]))
-    t.delete("1.0", "end"); t.insert("1.0", "9988776655")
-    log("Celular válido:", with_dialogs(root, lambda: btn(root, "Actualizar"), [lambda *a: None]))
+    # Tras guardar se vuelve a la lista con el docente nuevo seleccionado.
+    revisar(root, "gestión docentes tras alta")
+    btn(root, "Editar"); revisar(root, "editar docente")
+    celular = [w for w in walk(root) if isinstance(w, tk.Entry)][11]
+    celular.delete(0, "end"); celular.insert(0, "98765")
+    log("Celular corto:", with_dialogs(root, lambda: btn(root, "Guardar"), [lambda *a: None]))
+    celular.delete(0, "end"); celular.insert(0, "9988776655")
+    log("Celular válido:", with_dialogs(root, lambda: btn(root, "Guardar"), [lambda *a: None]))
     btn(root, "Volver"); btn(root, "Cerrar sesión")
 
     login(root, "luisq", "luis123", 2)
     revisar(root, "panel docente"); shot(os.path.join(OUT, "panel_docente.png"), windows=[root])
-    btn(root, "Nuevo alumno"); revisar(root, "alta alumno"); btn(root, "Volver")
-    btn(root, "Editar alumno"); revisar(root, "editar alumno"); btn(root, "Volver"); btn(root, "Cerrar sesión")
+    btn(root, "Alumnos"); revisar(root, "gestión alumnos")
+    btn(root, "Nuevo"); revisar(root, "alta alumno"); btn(root, "Volver"); btn(root, "Volver")
+    btn(root, "Cursos"); revisar(root, "gestión cursos")
+    btn(root, "Nuevo"); revisar(root, "alta curso")
+    e = [w for w in walk(root) if isinstance(w, tk.Entry)]
+    e[0].insert(0, "HIS-10"); e[1].insert(0, "Historia"); e[2].insert(0, "10th")
+    log("Guardar curso:", with_dialogs(root, lambda: btn(root, "Guardar"), [lambda *a: None]))
+    btn(root, "Volver")
+    btn(root, "Matrículas"); revisar(root, "matrículas")
+    btn(root, "Nuevo"); revisar(root, "nueva matrícula")
+    for combo in [w for w in walk(root) if w.winfo_class() == "TCombobox"]:
+        combo.current(0)
+    log("Matricular:", with_dialogs(root, lambda: btn(root, "Registrar"), [lambda *a: None]))
+    log("Repetida:", with_dialogs(root, lambda: ([w for w in walk(root) if w.winfo_class() == "TCombobox"][1].current(0),
+                                                btn(root, "Registrar")), [lambda *a: None]))
+    btn(root, "Volver"); btn(root, "Volver"); btn(root, "Cerrar sesión")
 
     login(root, "Rushabh123", "12345678", 3)
     revisar(root, "panel alumno"); shot(os.path.join(OUT, "panel_alumno.png"), windows=[root])

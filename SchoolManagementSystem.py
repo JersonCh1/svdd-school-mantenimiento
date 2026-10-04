@@ -5,6 +5,7 @@ Punto de entrada. Desde la v4.0 la aplicación está repartida en módulos:
   navegacion.py  ventana única con pantallas intercambiables (R01)
   pantallas.py   login, paneles y formularios con diseño adaptable (R02)
   validacion.py, fotos.py, migraciones.py  (v2.0)
+  gestion.py     alumnos, docentes, cursos y matrículas (v5.0)
 """
 
 import ctypes

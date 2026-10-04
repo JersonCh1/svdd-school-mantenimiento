@@ -3,12 +3,14 @@
 Sistema de gestión escolar en **Python + Tkinter + SQLite**, usado como proyecto del curso **Evolución y Mantenimiento de Software (2026-II)**. Parte del proyecto abierto [rushgala27/School-Management-System](https://github.com/rushgala27/School-Management-System) (licencia MIT) y registra, versión por versión, los requerimientos de mantenimiento aplicados.
 
 - Interfaz en español, con login para tres roles: **Director**, **Docente** y **Alumno**.
-- El director ve sus datos, edita su información, da de alta docentes y edita sus datos.
-- El docente ve sus datos, da de alta alumnos y edita sus datos.
+- El director ve y edita sus datos y gestiona docentes, alumnos, cursos y matrículas.
+- El docente ve sus datos y gestiona alumnos, cursos y matrículas.
 - El alumno ve sus datos.
-- Base de datos SQLite con 3 tablas: `StudentData`, `TeacherData` y `PrincipalData`.
+- Cada gestión permite registrar, consultar (con búsqueda por N.° o nombre), actualizar y eliminar, con validación de los datos y sin duplicados.
+- Base de datos SQLite con 5 tablas: `StudentData`, `TeacherData`, `PrincipalData`, `Curso` y `Matricula`, con claves foráneas y transacciones.
 
-![Panel del director](docs/capturas/v4.1/panel_natural.png)
+![Panel del director](docs/capturas/v5/panel_director.png)
+![Gestión de alumnos](docs/capturas/v5/gestion_alumnos.png)
 
 ## Cómo ejecutarlo
 
@@ -44,20 +46,24 @@ Cada versión es una etiqueta de Git, con un commit por requerimiento. El detall
 | `v3.0` | Clasificación del mantenimiento según la intención (ISO/IEC 14764) | — |
 | `v4.0` | R01 Navegación de ventana única · R02 Diseño responsivo (grid con pesos) · R03 Conexión única a SQLite (Singleton + WAL) | Correctiva · Perfectiva · Preventiva |
 | `v4.1` | Interfaz en español | Perfectivo |
+| `v5.0` | R01 Gestión de estudiantes · R02 Gestión de docentes · R03 Gestión de cursos · R04 Registro de matrículas · R05 Búsqueda · R06 Validación de datos · R07 Persistencia e integridad | Perfectiva (R01–R05) · Correctiva (R06) · Preventiva (R07) |
 
-Para ver el sistema tal como estaba en una versión: `git checkout v2.0` (o `v1.0`, `v3.0`, `v4.0`, `v4.1`). Hasta la v4.0 la interfaz estaba en inglés, como en el original.
+Para ver el sistema tal como estaba en una versión: `git checkout v2.0` (o `v1.0`, `v3.0`, `v4.0`, `v4.1`, `v5.0`). Hasta la v4.0 la interfaz estaba en inglés, como en el original.
 
 ## Estructura
 
 ```
 SchoolManagementSystem.py   punto de entrada
-pantallas.py                login, paneles y formularios (diseño adaptable)   v4.0 R02
+pantallas.py                login, paneles, formularios y gestión           v4.0 R02, v5.0
+gestion.py                  reglas de alumnos, docentes, cursos y matrículas   v5.0 R01–R05
 navegacion.py               ventana única con pantallas intercambiables        v4.0 R01
 db.py                       conexión única a SQLite (Singleton, WAL)           v4.0 R03
-validacion.py               solo dígitos en Mobile No. / Aadhaar Card No.      v2.0 R01
+                            transacciones y claves foráneas                    v5.0 R07
+validacion.py               solo dígitos en celular / Aadhaar                  v2.0 R01
+                            reglas de validación de cada registro             v5.0 R06
 fotos.py                    selección, validación y miniatura de la foto       v2.0 R03
-migraciones.py              migraciones idempotentes de testdata.db            v2.0
-testdata.db                 base de datos de ejemplo (3 tablas)
+migraciones.py              migraciones idempotentes de testdata.db            v2.0, v5.0
+testdata.db                 base de datos de ejemplo
 tests/                      pruebas automáticas (unittest)
 docs/                       registro de mantenimiento y capturas de evidencia
 herramientas/               verificación automática de la interfaz real
@@ -71,10 +77,12 @@ python -m unittest -v                  # pruebas automáticas
 python herramientas/verificar_app.py    # recorrido real de la interfaz (Windows)
 ```
 
-37 pruebas: validación numérica (incluido pegar desde el portapapeles), migraciones, fotos, conexión única (bloqueos reales con y sin WAL, inyección SQL, rutas), navegación de ventana única y diseño adaptable a escalas de pantalla de 1.0 y 1.75.
+92 pruebas: validación numérica (incluido pegar desde el portapapeles), migraciones, fotos, conexión única (bloqueos reales con y sin WAL, inyección SQL, rutas), navegación de ventana única, diseño adaptable a escalas de pantalla de 1.0 y 1.75 y, desde la v5.0, gestión de alumnos, docentes, cursos y matrículas, búsqueda, validación, duplicados, relaciones y transacciones (rollback y datos recuperados al reabrir la base).
+
+En Linux, las pruebas de interfaz necesitan una pantalla; sin escritorio se pueden correr con `xvfb-run -a python -m unittest`.
 
 ## Créditos y licencia
 
 Proyecto original: **rushgala27** — [School-Management-System](https://github.com/rushgala27/School-Management-System). Las capturas originales están en `images/`.
-Mantenimiento v2.0–v4.1: **Jerson Chura** (curso de Evolución y Mantenimiento de Software, 2026-II).
+Mantenimiento v2.0–v5.0: **Jerson Chura** (curso de Evolución y Mantenimiento de Software, 2026-II).
 Licencia MIT (ver `LICENSE`).

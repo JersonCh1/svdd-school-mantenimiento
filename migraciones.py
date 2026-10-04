@@ -1,6 +1,8 @@
 """Migraciones de datos de testdata.db. Todas son idempotentes: se ejecutan
 al iniciar la aplicación y no hacen nada si la base ya está actualizada."""
 
+import sqlite3
+
 from validacion import LONGITUDES
 
 TABLAS = ("StudentData", "TeacherData", "PrincipalData")
@@ -56,9 +58,87 @@ def v2_columna_foto(con):
     return agregadas
 
 
+def v5_quitar_duplicados(con):
+    """v5.0 R07: borra las copias exactas de un mismo registro (TeacherData
+    tenía dos filas idénticas del usuario 5555). Se conserva la primera."""
+    borradas = []
+    for tabla in ("StudentData", "TeacherData"):
+        columnas = ", ".join(f[1] for f in con.execute(f"PRAGMA table_info({tabla})"))
+        cur = con.execute(f"DELETE FROM {tabla} WHERE rowid NOT IN "
+                          f"(SELECT MIN(rowid) FROM {tabla} GROUP BY {columnas})")
+        if cur.rowcount:
+            borradas.append((tabla, cur.rowcount))
+    con.commit()
+    return borradas
+
+
+# Identificadores que no pueden repetirse. Los índices únicos de gno y trno
+# además permiten que Curso y Matricula los usen como claves foráneas.
+UNICOS = (("StudentData", "gno"), ("StudentData", "username"),
+          ("TeacherData", "trno"), ("TeacherData", "username"))
+
+
+def v5_indices_unicos(con):
+    """v5.0 R07: la base rechaza duplicados aunque algún formulario no los revise.
+    Si quedan duplicados que no son copias exactas, avisa y no crea ese índice
+    (habría que corregirlos a mano)."""
+    avisos = []
+    for tabla, columna in UNICOS:
+        try:
+            con.execute(f"CREATE UNIQUE INDEX IF NOT EXISTS ux_{tabla}_{columna} ON {tabla}({columna})")
+        except sqlite3.IntegrityError:
+            repetidos = [f[0] for f in con.execute(
+                f"SELECT {columna} FROM {tabla} WHERE {columna} IS NOT NULL "
+                f"GROUP BY {columna} HAVING COUNT(*) > 1")]
+            avisos.append((tabla, columna, repetidos))
+    con.commit()
+    return avisos
+
+
+def v5_tabla_cursos(con):
+    """v5.0 R03: cursos con identificador único (id interno + código único).
+
+    El docente a cargo es una clave foránea: no se puede eliminar un docente
+    que tiene cursos (ON DELETE RESTRICT) y, si cambia su N.° de registro,
+    el curso lo sigue (ON UPDATE CASCADE)."""
+    con.executescript("""
+        CREATE TABLE IF NOT EXISTS Curso(
+            id INTEGER PRIMARY KEY,
+            codigo TEXT NOT NULL UNIQUE,
+            nombre TEXT NOT NULL,
+            grado TEXT,
+            trno INTEGER REFERENCES TeacherData(trno) ON UPDATE CASCADE ON DELETE RESTRICT);
+        CREATE INDEX IF NOT EXISTS ix_Curso_trno ON Curso(trno);
+    """)
+
+
+def v5_tabla_matriculas(con):
+    """v5.0 R04: matrícula = alumno + curso + periodo académico.
+
+    UNIQUE(gno, curso_id, periodo) impide matricular dos veces lo mismo; las
+    claves foráneas impiden matricular a un alumno o curso inexistente y
+    borrar un alumno o curso que tiene matrículas."""
+    con.executescript("""
+        CREATE TABLE IF NOT EXISTS Matricula(
+            id INTEGER PRIMARY KEY,
+            gno INTEGER NOT NULL REFERENCES StudentData(gno) ON UPDATE CASCADE ON DELETE RESTRICT,
+            curso_id INTEGER NOT NULL REFERENCES Curso(id) ON DELETE RESTRICT,
+            periodo TEXT NOT NULL,
+            fecha TEXT NOT NULL,
+            UNIQUE(gno, curso_id, periodo));
+        CREATE INDEX IF NOT EXISTS ix_Matricula_curso ON Matricula(curso_id);
+    """)
+
+
 def migrar(con):
     for tabla in v2_columna_foto(con):
         print(f"[migración v2] {tabla}: columna photo_blob agregada")
     cambios = v2_normalizar_numeros(con)
     for tabla, usuario, columna, antes, despues in cambios:
         print(f"[migración v2] {tabla}.{columna} ({usuario}): {antes!r} -> {despues!r}")
+    for tabla, cantidad in v5_quitar_duplicados(con):
+        print(f"[migración v5] {tabla}: {cantidad} copia(s) exacta(s) eliminada(s)")
+    for tabla, columna, repetidos in v5_indices_unicos(con):
+        print(f"[migración v5] AVISO {tabla}.{columna} tiene valores repetidos {repetidos}: corrígelos")
+    v5_tabla_cursos(con)
+    v5_tabla_matriculas(con)
