@@ -1,6 +1,6 @@
 # Dónde retomar
 
-Estado al **24-10-2026**: versión **v6.0** implementada en la rama `claude/new-session-z0n3iv` (MR-101 a MR-105, plantilla IEEE 14764 en `docs/Plan_Mantenimiento_v6.docx`). Falta revisarla en Windows con `herramientas/verificar_app.py`, unirla a `main`, etiquetar `v6.0` y crear el release.
+Estado al **24-10-2026**: versión **v6.0** (MR-101 a MR-105) unida a `main`; plantilla IEEE 14764 en `docs/Plan_Mantenimiento_v6.docx`. Falta revisarla en Windows con `herramientas/verificar_app.py`, etiquetar `v6.0`, generar el `.exe` y crear el release.
 
 - Repositorio: https://github.com/JersonCh1/svdd-school-mantenimiento (remoto `origin`; `upstream` = proyecto original de rushgala27).
 - Carpeta local: `D:\Proyectos\mis-proyectos\svdd-school-mantenimiento`.
