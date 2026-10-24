@@ -46,8 +46,8 @@ class BusquedaSinTildesTest(Base):
 
     def setUp(self):
         super().setUp()
-        self.g.registrar("student", {"name": "Lucía", "lname": "Ñahui", "gno": "5001", "username": "lucia", "password": "x1"})
-        self.g.registrar("student", {"name": "José", "lname": "Quispe", "gno": "5002", "username": "jose", "password": "x2"})
+        self.g.registrar("student", {"name": "Lucía", "lname": "Ñahui", "gno": "5001", "username": "alu5001", "password": "x1"})
+        self.g.registrar("student", {"name": "José", "lname": "Quispe", "gno": "5002", "username": "alu5002", "password": "x2"})
 
     def test_plano(self):
         self.assertEqual(plano("Lucía ÑAHUI"), "lucia nahui")

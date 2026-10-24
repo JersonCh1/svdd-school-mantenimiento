@@ -6,6 +6,7 @@ Sistema de gestión escolar en **Python + Tkinter + SQLite**, usado como proyect
 - El director ve y edita sus datos y gestiona docentes, alumnos, cursos y matrículas.
 - El docente ve sus datos y gestiona alumnos, cursos y matrículas.
 - El alumno ve sus datos.
+- El director puede respaldar la base desde su panel (carpeta `respaldos/`).
 - Cada gestión permite registrar, consultar (con búsqueda por N.° o nombre), actualizar y eliminar, con validación de los datos y sin duplicados.
 - Base de datos SQLite con 5 tablas: `StudentData`, `TeacherData`, `PrincipalData`, `Curso` y `Matricula`, con claves foráneas y transacciones.
 
@@ -47,8 +48,9 @@ Cada versión es una etiqueta de Git, con un commit por requerimiento. El detall
 | `v4.0` | R01 Navegación de ventana única · R02 Diseño responsivo (grid con pesos) · R03 Conexión única a SQLite (Singleton + WAL) | Correctiva · Perfectiva · Preventiva |
 | `v4.1` | Interfaz en español | Perfectivo |
 | `v5.0` | R01 Gestión de estudiantes · R02 Gestión de docentes · R03 Gestión de cursos · R04 Registro de matrículas · R05 Búsqueda · R06 Validación de datos · R07 Persistencia e integridad | Perfectiva (R01–R05) · Correctiva (R06) · Preventiva (R07) |
+| `v6.0` | MR-101 Búsqueda sin tildes · MR-102 Edición del director con formulario completo · MR-103 Base en la carpeta del usuario · MR-104 Respaldo de la base · MR-105 Contraseñas con hash | Correctivo (101, 102) · Adaptativo (103) · Perfectivo (104) · Preventivo (105) |
 
-Para ver el sistema tal como estaba en una versión: `git checkout v2.0` (o `v1.0`, `v3.0`, `v4.0`, `v4.1`, `v5.0`). Hasta la v4.0 la interfaz estaba en inglés, como en el original.
+Para ver el sistema tal como estaba en una versión: `git checkout v2.0` (o `v1.0`, `v3.0`, `v4.0`, `v4.1`, `v5.0`, `v6.0`). Hasta la v4.0 la interfaz estaba en inglés, como en el original.
 
 ## Estructura
 
@@ -61,6 +63,8 @@ db.py                       conexión única a SQLite (Singleton, WAL)          
                             transacciones y claves foráneas                    v5.0 R07
 validacion.py               solo dígitos en celular / Aadhaar                  v2.0 R01
                             reglas de validación de cada registro             v5.0 R06
+seguridad.py                contraseñas con hash PBKDF2 + sal                  v6.0 MR-105
+texto.py                    comparación sin tildes ni mayúsculas               v6.0 MR-101
 fotos.py                    selección, validación y miniatura de la foto       v2.0 R03
 migraciones.py              migraciones idempotentes de testdata.db            v2.0, v5.0
 testdata.db                 base de datos de ejemplo
@@ -77,12 +81,12 @@ python -m unittest -v                  # pruebas automáticas
 python herramientas/verificar_app.py    # recorrido real de la interfaz (Windows)
 ```
 
-92 pruebas: validación numérica (incluido pegar desde el portapapeles), migraciones, fotos, conexión única (bloqueos reales con y sin WAL, inyección SQL, rutas), navegación de ventana única, diseño adaptable a escalas de pantalla de 1.0 y 1.75 y, desde la v5.0, gestión de alumnos, docentes, cursos y matrículas, búsqueda, validación, duplicados, relaciones y transacciones (rollback y datos recuperados al reabrir la base).
+113 pruebas: validación numérica (incluido pegar desde el portapapeles), migraciones, fotos, conexión única (bloqueos reales con y sin WAL, inyección SQL, rutas), navegación de ventana única, diseño adaptable a escalas de pantalla de 1.0 y 1.75 y, desde la v5.0, gestión de alumnos, docentes, cursos y matrículas, búsqueda, validación, duplicados, relaciones y transacciones (rollback y datos recuperados al reabrir la base) y, desde la v6.0, búsqueda sin tildes, contraseñas con hash, edición del director, ubicación de la base y respaldos.
 
 En Linux, las pruebas de interfaz necesitan una pantalla; sin escritorio se pueden correr con `xvfb-run -a python -m unittest`.
 
 ## Créditos y licencia
 
 Proyecto original: **rushgala27** — [School-Management-System](https://github.com/rushgala27/School-Management-System). Las capturas originales están en `images/`.
-Mantenimiento v2.0–v5.0: **Jerson Chura** (curso de Evolución y Mantenimiento de Software, 2026-II).
+Mantenimiento v2.0–v6.0: **Jerson Chura** (curso de Evolución y Mantenimiento de Software, 2026-II).
 Licencia MIT (ver `LICENSE`).

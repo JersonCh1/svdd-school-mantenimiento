@@ -271,3 +271,71 @@ Requerimientos funcionales del sistema de gestión escolar. En la hoja original 
 | R05 | Búsqueda y consulta de información | Media | Perfectiva |
 | R06 | Validación de datos | Alta | Correctiva |
 | R07 | Persistencia e integridad de la información | Alta | Preventiva |
+
+---
+
+## Versión 6.0 — etiqueta `v6.0`
+
+Iteración de 5 cambios documentada con la plantilla **Plan y Reporte de Mantenimiento (IEEE Std 14764-2006)**. Cada cambio es una solicitud de modificación (MR) con su tipo de mantenimiento según la intención. Diagramas UML de secuencia en `docs/diagramas/v6/`; capturas antes/después en `docs/capturas/v6/`.
+
+| MR | Nombre | Tipo | Componente | Prioridad |
+|---|---|---|---|---|
+| MR-101 | Búsqueda sin tildes ni mayúsculas | Correctivo | `gestion.py`, `db.py`, `texto.py` | P1 Alta |
+| MR-102 | Edición de datos del director con formulario completo | Correctivo | `pantallas.py`, `gestion.py` | P1 Alta |
+| MR-103 | Base de datos en la carpeta del usuario si la del .exe es de solo lectura | Adaptativo | `db.py` | P2 Media |
+| MR-104 | Respaldo de la base desde la aplicación | Perfectivo | `db.py`, `pantallas.py` | P3 Normal |
+| MR-105 | Contraseñas con hash PBKDF2 + sal | Preventivo | `seguridad.py`, `db.py`, `migraciones.py`, `gestion.py` | P2 Media |
+
+### MR-101 — Búsqueda sin tildes ni mayúsculas
+
+- **Descripción:** buscar `lucia` no encontraba a *Lucía*, ni `JOSÉ` a *José*: el `LIKE` de SQLite solo ignora mayúsculas en letras ASCII (limitación anotada en la v5.0 R05).
+- **Tipo:** Correctivo — falla observable en el listado ("No se encontraron coincidencias").
+- **Observaciones:**
+  - Se registra en la conexión una función `plano()` (NFD sin marcas diacríticas + `casefold()`) y se compara `plano(columna) LIKE plano(texto)`.
+  - En las primeras capturas «lucia» sí aparecía en la v5.0… porque el **usuario** del alumno de prueba era `lucia` y la búsqueda también mira el usuario. Se cambió el dato de prueba a `alu5001` para que la prueba demuestre el defecto de verdad.
+  - Costo medido con 10 007 alumnos: 3 ms → ~30 ms por búsqueda (la función se evalúa en Python por fila). Aceptable para un colegio; con muchos más registros convendría guardar una columna normalizada con índice.
+- **Evidencia:** ![antes](capturas/v6/antes_buscar_lucia.png) ![después](capturas/v6/despues_buscar_lucia.png)
+
+### MR-102 — Edición de datos del director con formulario completo
+
+- **Descripción:** *Editar mis datos* pedía escribir a mano nombre y N.° de registro y cambiaba un solo campo en un cuadro de texto.
+- **Tipo:** Correctivo — fallas reproducidas en la v5.0: con `Rajan ` (espacio final) o `rajan` respondía "Ningún registro coincide"; y el valor se guardaba con el salto de línea del cuadro de texto (`'Peruvian\n'`).
+- **Observaciones:**
+  - Se reutiliza el formulario completo de alumnos/docentes (v5.0), identificado por el N.° de registro de la sesión: no se escribe nada a mano y se aplican las mismas reglas de validación y normalización (R06).
+  - Si el director cambia su usuario o contraseña, la sesión se actualiza para que *Volver* no lo saque al login.
+  - Se eliminó la pantalla de edición campo a campo (~75 líneas).
+- **Evidencia:** ![antes](capturas/v6/antes_editar_director.png) ![después](capturas/v6/despues_editar_director.png)
+
+### MR-103 — Base en la carpeta del usuario si la del .exe es de solo lectura
+
+- **Descripción:** el `.exe` guardaba `testdata.db` junto al ejecutable. Instalado en `C:\Program Files` (o una carpeta sin permiso de escritura) la copia inicial fallaba con `PermissionError`, y en modo WAL SQLite necesita crear `-wal` y `-shm` junto a la base.
+- **Tipo:** Adaptativo — el programa se adapta a un entorno de instalación distinto, no corrige su lógica.
+- **Observaciones:**
+  - `os.access()` no sirve en Windows (responde que sí en Program Files): se prueba creando un archivo temporal real.
+  - Si ya había una base junto al `.exe` (versión anterior), se copia esa a `%LOCALAPPDATA%\SVDD-School\` para no perder datos; si no, la incluida en el ejecutable.
+  - Solo se pudo probar simulando la carpeta de solo lectura (las pruebas corren como administrador en Linux); falta comprobarlo con un instalador real en Windows.
+
+### MR-104 — Respaldo de la base desde la aplicación
+
+- **Descripción:** botón *Respaldo* en el panel del director que guarda `respaldos/testdata-AAAAMMDD-HHMMSS.db` y conserva las 10 copias más recientes.
+- **Tipo:** Perfectivo — capacidad nueva.
+- **Observaciones:**
+  - Copiar el archivo con `shutil` no sirve en modo WAL: los cambios recientes siguen en `testdata.db-wal`. Se usa `Connection.backup()` de SQLite; la prueba verifica que un alta aún no volcada aparece en la copia y que `PRAGMA integrity_check` da `ok`.
+  - La prueba de "conservar solo las más recientes" falló dos veces: por orden alfabético `…-1.db` queda antes que `….db`, y al reutilizar un número ya borrado la copia nueva se ordenaba como la más vieja. Se ordena por (fecha, número) y el número siempre crece.
+  - Restaurar un respaldo desde la app quedó fuera de esta versión.
+- **Evidencia:** ![panel](capturas/v6/despues_panel_director.png)
+
+### MR-105 — Contraseñas con hash
+
+- **Descripción:** las contraseñas estaban en texto plano en la base y en cualquier copia de ella.
+- **Tipo:** Preventivo — defecto latente de seguridad; aún no había producido una falla.
+- **Observaciones:**
+  - Formato `pbkdf2_sha256$120000$sal$hash`, comparación con `hmac.compare_digest`. La migración es idempotente y los usuarios siguen entrando con su misma contraseña.
+  - El formulario de edición ya no puede mostrar la contraseña: queda vacía y "vacía = no cambiarla". En el alta sigue siendo obligatoria.
+  - `autenticar()` ya no compara en el SQL; tres pruebas de `test_db.py` insertaban o comparaban contraseñas planas y se ajustaron.
+  - Con 120 000 iteraciones el login tarda ~30 ms y la suite pasó de ~2 s a ~46 s (muchos altas con hash).
+- **Evidencia:** `pbkdf2_sha256$120000$7cc183…` en lugar de `RUpadhyay123`.
+
+### Pruebas v6.0
+
+113 pruebas (21 nuevas en `tests/test_v6.py`). ![pruebas](capturas/v6/pruebas_unittest.png)

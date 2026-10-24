@@ -1,6 +1,6 @@
 # Dónde retomar
 
-Estado al **03-10-2026**: versión **v5.0** implementada en la rama `claude/hola-krqpcr` (R01–R07: gestión de alumnos, docentes, cursos y matrículas, búsqueda, validación y persistencia). Falta revisarla en Windows con `herramientas/verificar_app.py`, unirla a `main`, etiquetar `v5.0` y crear el release. Las versiones v2.0 a v4.1 ya están etiquetadas y con release.
+Estado al **24-10-2026**: versión **v6.0** implementada en la rama `claude/new-session-z0n3iv` (MR-101 a MR-105, plantilla IEEE 14764 en `docs/Plan_Mantenimiento_v6.docx`). Falta revisarla en Windows con `herramientas/verificar_app.py`, unirla a `main`, etiquetar `v6.0` y crear el release.
 
 - Repositorio: https://github.com/JersonCh1/svdd-school-mantenimiento (remoto `origin`; `upstream` = proyecto original de rushgala27).
 - Carpeta local: `D:\Proyectos\mis-proyectos\svdd-school-mantenimiento`.
@@ -12,7 +12,7 @@ Estado al **03-10-2026**: versión **v5.0** implementada en la rama `claude/hola
 ```bash
 pip install -r requirements.txt           # Pillow
 python SchoolManagementSystem.py          # abrir la app
-python -m unittest -v                     # 92 pruebas
+python -m unittest -v                     # 113 pruebas
 python herramientas/verificar_app.py      # recorrido real de la interfaz con los 3 roles (Windows)
 ```
 
@@ -37,13 +37,11 @@ python -m PyInstaller --noconfirm --onefile --windowed --name SVDD-School --add-
 
 ## Requerimientos candidatos (problemas reales que siguen en el código)
 
-- **Contraseñas en texto plano** en la base: guardarlas con hash (`hashlib.scrypt` o `pbkdf2_hmac` + sal) y migrar las existentes. *Preventivo.*
-- **Búsqueda con tildes**: `LIKE` de SQLite no iguala `lucia` con `Lucía`. Normalizar los textos al buscar. *Perfectivo.*
+- **Restaurar un respaldo** desde la app (hoy solo se crean). *Perfectivo.*
+- **Columna normalizada con índice** para la búsqueda sin tildes si la base crece mucho (hoy ~30 ms con 10 000 alumnos). *Preventivo.*
 - **Fechas inválidas heredadas** (`tyjuyj`, `jtyutr`): hoy se marcan solo al editar ese registro. *Preventivo.*
 - **Selector de fecha** en lugar de escribirla a mano. *Perfectivo.*
 - **Notas por matrícula** (calificaciones de cada alumno en cada curso y periodo). *Perfectivo.*
-- **Edición de los datos propios del director** sigue siendo de un campo a la vez: pasarla al formulario completo. *Perfectivo.*
-- **Respaldo de la base** desde la app (copiar testdata.db con fecha). *Preventivo.*
 
 ## Trampas conocidas
 
