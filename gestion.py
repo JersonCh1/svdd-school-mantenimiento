@@ -3,11 +3,17 @@ poder probarlas sin abrir ventanas.
 
 Cada operación valida primero (R06) y escribe dentro de una transacción
 (R07): si algo falla, la base queda exactamente como estaba.
+
+v6.0: la búsqueda ignora tildes (MR-101), el director edita sus datos con
+el mismo formulario y reglas que alumnos y docentes (MR-102) y las
+contraseñas se guardan con hash (MR-105).
 """
 
 from datetime import datetime
 
+import seguridad
 from db import ErrorIntegridad
+from texto import plano
 from validacion import FORMATO_FECHA, ErrorValidacion, errores_registro, normalizar
 
 REGISTROS = {
@@ -15,6 +21,9 @@ REGISTROS = {
                     listado="SELECT gno AS clave, gno, name, lname, std, div, username FROM StudentData"),
     "teacher": dict(tabla="TeacherData", clave="trno", quien="docente", orden="name COLLATE NOCASE, lname COLLATE NOCASE",
                     listado="SELECT trno AS clave, trno, name, lname, staught, username FROM TeacherData"),
+    # MR-102: el director solo edita su propio registro (no tiene listado).
+    "principal": dict(tabla="PrincipalData", clave="trno", quien="director", orden="name",
+                      listado="SELECT trno AS clave, trno, name, lname, username FROM PrincipalData"),
     "curso": dict(tabla="Curso", clave="id", quien="curso", orden="c.codigo",
                   listado="SELECT c.id AS clave, c.codigo, c.nombre, c.grado, c.trno, "
                           "TRIM(COALESCE(t.name, '') || ' ' || COALESCE(t.lname, '')) AS docente "
@@ -42,6 +51,8 @@ UNICAS = {
                 ("username", "Ese usuario ya está en uso por otro alumno.")),
     "teacher": (("trno", "Ya existe un docente con ese N.° de registro docente."),
                 ("username", "Ese usuario ya está en uso por otro docente.")),
+    "principal": (("trno", "Ya existe un director con ese N.° de registro."),
+                  ("username", "Ese usuario ya está en uso por otro director.")),
     "curso": (("codigo", "Ya existe un curso con ese código."),),
     "matricula": (),
 }
@@ -66,8 +77,15 @@ class Gestion:
     def validar(self, tipo, datos, original=None):
         """Devuelve los datos normalizados o lanza ErrorValidacion con TODOS
         los problemas encontrados (no solo el primero). 'original' es la clave
-        del registro que se está editando: no cuenta como duplicado de sí mismo."""
-        errores = errores_registro(tipo, datos)
+        del registro que se está editando: no cuenta como duplicado de sí mismo.
+
+        MR-105: al editar, una contraseña vacía significa «no cambiarla» (el
+        formulario ya no muestra la guardada, que ahora es un hash)."""
+        conservar_clave = original is not None and "password" in datos and \
+            (datos["password"] is None or not str(datos["password"]).strip())
+        if conservar_clave:
+            datos = {c: v for c, v in datos.items() if c != "password"}
+        errores = [e for e in errores_registro(tipo, datos) if not (conservar_clave and e[0] == "password")]
         if errores:
             raise ErrorValidacion(errores)
         datos = normalizar(tipo, datos)
@@ -116,9 +134,11 @@ class Gestion:
         filtro = filtro.strip()
         if filtro:
             busqueda = BUSQUEDA[tipo]
-            patron = "%" + filtro.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+            # MR-101: el texto y la columna se comparan sin tildes ni mayúsculas.
+            buscado = plano(filtro)
+            patron = "%" + buscado.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
             condiciones = [f"CAST({c} AS TEXT) = ? COLLATE NOCASE" for c in busqueda["exactos"]]
-            condiciones += [f"{c} LIKE ? ESCAPE '\\'" for c in busqueda["textos"]]
+            condiciones += [f"plano({c}) LIKE ? ESCAPE '\\'" for c in busqueda["textos"]]
             params = [filtro] * len(busqueda["exactos"]) + [patron] * len(busqueda["textos"])
             sql += " WHERE " + " OR ".join(condiciones)
         return self.db.consultar(f"{sql} ORDER BY {conf['orden']}", params)
@@ -127,8 +147,15 @@ class Gestion:
         conf = REGISTROS[tipo]
         return self.db.uno(f"SELECT * FROM {conf['tabla']} WHERE {conf['clave']} = ?", (clave,))
 
+    @staticmethod
+    def _con_hash(datos):
+        """MR-105: la contraseña nunca llega a la base en texto plano."""
+        if datos.get("password") is not None:
+            datos["password"] = seguridad.hashear(datos["password"])
+        return datos
+
     def registrar(self, tipo, datos):
-        datos = self.validar(tipo, datos)
+        datos = self._con_hash(self.validar(tipo, datos))
         if tipo == "matricula":
             datos["fecha"] = datetime.now().strftime(FORMATO_FECHA)
         with self.db.transaccion():
@@ -139,7 +166,7 @@ class Gestion:
 
     def actualizar(self, tipo, original, datos):
         """Reemplaza los datos del registro cuya clave es 'original'."""
-        datos = self.validar(tipo, datos, original=original)
+        datos = self._con_hash(self.validar(tipo, datos, original=original))
         conf = REGISTROS[tipo]
         with self.db.transaccion():
             if self.db.actualizar_fila(conf["tabla"], datos, {conf["clave"]: original}) == 0:

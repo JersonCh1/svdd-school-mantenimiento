@@ -3,6 +3,7 @@ al iniciar la aplicación y no hacen nada si la base ya está actualizada."""
 
 import sqlite3
 
+import seguridad
 from validacion import LONGITUDES
 
 TABLAS = ("StudentData", "TeacherData", "PrincipalData")
@@ -130,6 +131,23 @@ def v5_tabla_matriculas(con):
     """)
 
 
+def v6_hashear_contrasenas(con):
+    """v6.0 MR-105: reemplaza cada contraseña en texto plano por su hash.
+    Las que ya son hash no se tocan (idempotente); los usuarios siguen
+    entrando con la misma contraseña de siempre. Todo o nada: si algo falla
+    a mitad, no queda una tabla con contraseñas mezcladas."""
+    cambiadas = []
+    with con:
+        for tabla in TABLAS:
+            for rowid, usuario, clave in con.execute(f"SELECT rowid, username, password FROM {tabla}").fetchall():
+                if clave is None or seguridad.es_hash(clave):
+                    continue
+                con.execute(f"UPDATE {tabla} SET password = ? WHERE rowid = ?",
+                            (seguridad.hashear(str(clave)), rowid))
+                cambiadas.append((tabla, usuario))
+    return cambiadas
+
+
 def migrar(con):
     for tabla in v2_columna_foto(con):
         print(f"[migración v2] {tabla}: columna photo_blob agregada")
@@ -142,3 +160,5 @@ def migrar(con):
         print(f"[migración v5] AVISO {tabla}.{columna} tiene valores repetidos {repetidos}: corrígelos")
     v5_tabla_cursos(con)
     v5_tabla_matriculas(con)
+    for tabla, usuario in v6_hashear_contrasenas(con):
+        print(f"[migración v6] {tabla} ({usuario}): contraseña guardada con hash")

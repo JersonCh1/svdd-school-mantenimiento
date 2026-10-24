@@ -5,7 +5,9 @@ import tempfile
 import unittest
 
 import db
+import seguridad
 from db import BaseDatos, BaseDeDatosOcupada
+from migraciones import v6_hashear_contrasenas
 
 ORIGEN = os.path.join(os.path.dirname(__file__), "..", "testdata.db")
 
@@ -18,6 +20,7 @@ class BaseDatosTest(unittest.TestCase):
         self.espera = db.ESPERA_MS
         db.ESPERA_MS = 300
         self.db = BaseDatos(self.ruta)
+        v6_hashear_contrasenas(self.db.con)  # MR-105: autenticar() compara contra el hash
 
     def tearDown(self):
         BaseDatos.cerrar()
@@ -52,7 +55,8 @@ class BaseDatosTest(unittest.TestCase):
         self.assertIsNone(self.db.autenticar("PrincipalData", "' OR '1'='1", "' OR '1'='1"))
 
     def test_apostrofo_en_los_datos(self):
-        self.db.insertar("TeacherData", {"name": "Ana", "lname": "D'Souza", "username": "ana", "password": "x"})
+        self.db.insertar("TeacherData", {"name": "Ana", "lname": "D'Souza", "username": "ana",
+                                         "password": seguridad.hashear("x")})
         self.assertEqual(self.db.autenticar("TeacherData", "ana", "x")["lname"], "D'Souza")
 
     def test_columna_fuera_del_esquema(self):

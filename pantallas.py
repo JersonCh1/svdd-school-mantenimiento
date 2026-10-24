@@ -8,16 +8,20 @@ ventana y los textos largos se reacomodan en varias líneas.
 
 Las tres versiones duplicadas de cada pantalla (alumno, docente, director)
 se reemplazan por una sola, guiada por las tablas de campos de abajo.
+
+v6.0: el director edita sus datos con el formulario completo (MR-102) y
+puede respaldar la base desde su panel (MR-104).
 """
 
 import tkinter as tk
+import os
 from tkinter import messagebox, ttk
 
 import fotos
-from db import TABLAS, BaseDeDatosOcupada, ErrorIntegridad
+from db import RESPALDOS_CONSERVADOS, TABLAS, BaseDeDatosOcupada, ErrorIntegridad
 from navegacion import Navegador
 from gestion import REGISTROS, ErrorValidacion, Gestion
-from validacion import configurar_numerico, errores_registro, periodo_actual
+from validacion import configurar_numerico, periodo_actual
 
 FONDO = '#583830'
 FONDO_LOGIN = '#897C78'
@@ -82,16 +86,8 @@ LISTADOS = {
         ("codigo", "Código", 80), ("curso", "Curso", 160), ("grado", "Grado", 70), ("fecha", "Fecha", 100)]),
 }
 
-# Formularios de edición: qué tabla, cómo se identifica el registro y qué campos se pueden cambiar.
-# (Desde la v5.0 los alumnos y docentes se editan con el formulario completo.)
-EDICIONES = {
-    "personal": dict(tabla="PrincipalData", clave="trno", rol="principal",
-                     nombre="Tu nombre:", registro="Tu N.° de registro:"),
-}
-ROL_DE_EDICION = {"personal": "principal"}
-for _tipo, _conf in EDICIONES.items():
-    _campos = CAMPOS[ROL_DE_EDICION[_tipo]]
-    _conf["opciones"] = [(etq.rstrip(":"), col) for fila in _campos for etq, col, *_ in fila]
+# Quién es cada tipo de registro en los mensajes del formulario.
+QUIEN = {"student": "alumno", "teacher": "docente", "principal": "director"}
 
 
 def etiqueta(padre, texto, **kw):
@@ -253,7 +249,8 @@ class Aplicacion:
 
         botones = [("Cerrar sesión", self.cerrar_sesion)]
         if rol == "principal":
-            botones += [("Editar mis datos", lambda: self.mostrar_edicion("personal")),
+            botones += [("Editar mis datos", lambda: self.mostrar_formulario("principal", fila["trno"])),
+                        ("Respaldo", self.respaldar),
                         ("Docentes", lambda: self.mostrar_gestion("teacher"))]
         if rol in ("principal", "teacher"):
             botones += [("Alumnos", lambda: self.mostrar_gestion("student")),
@@ -262,6 +259,21 @@ class Aplicacion:
         self.barra_botones(p, botones)
         self.nav.ajustar(minimo=(640, 0))
 
+    def respaldar(self):
+        """MR-104: copia de la base con fecha y hora, sin cerrar la aplicación."""
+        p = self.nav.actual
+        try:
+            destino = self.db.respaldar()
+        except BaseDeDatosOcupada as e:
+            messagebox.showerror("Base de datos ocupada", str(e), parent=p)
+            return None
+        except OSError as e:
+            messagebox.showerror("No se pudo respaldar", f"No se pudo escribir el respaldo:\n{e}", parent=p)
+            return None
+        messagebox.showinfo("Respaldo creado", f"Se guardó una copia de la base en:\n{destino}\n\n"
+                            f"Se conservan las {RESPALDOS_CONSERVADOS} copias más recientes en "
+                            f"{os.path.basename(os.path.dirname(destino))}/.", parent=p)
+        return destino
     def barra_botones(self, p, botones, fila=2):
         barra = tk.Frame(p, bg=FONDO)
         barra.grid(row=fila, column=0, sticky="ew", padx=14, pady=(0, 14))
@@ -395,6 +407,7 @@ class Aplicacion:
             self.mostrar_formulario_matricula()
             return
         rol = ROLES[self.nav.sesion[0]]
+        propio = tipo == "principal"  # MR-102: el director edita su propio registro
         registro = self.gestion.obtener(tipo, clave) if clave is not None else None
         p = self.nav.pantalla()
         p.columnconfigure(0, weight=1)
@@ -431,7 +444,13 @@ class Aplicacion:
         configurar_numerico(campos["adno"], 12)
 
         if registro is not None:
+            # MR-105: la contraseña guardada es un hash: no se muestra. Vacía = no cambiarla.
+            cuenta["password"].configure(show="*")
+            etiqueta(lateral, "(vacía = no cambiar)").grid(row=4, column=0, columnspan=2, sticky="w")
+            selector.vista.grid(row=5, column=0, columnspan=2, pady=6)
             for col, w in {**campos, **cuenta}.items():
+                if col == "password":
+                    continue
                 valor = "" if registro[col] is None else str(registro[col])
                 w.insert("1.0", valor) if isinstance(w, tk.Text) else w.insert(0, valor)
             # Si no se elige otra foto, se conserva la actual.
@@ -439,7 +458,13 @@ class Aplicacion:
             if selector.datos:
                 fotos.mostrar(selector.vista, selector.datos, fotos.TAMANO_MINIATURA)
 
-        quien = LISTADOS[tipo]["quien"]
+        quien = QUIEN[tipo]
+
+        def volver(seleccion=clave):
+            if propio:
+                self.mostrar_panel()
+            else:
+                self.mostrar_gestion(tipo, seleccion=seleccion)
 
         def guardar():
             datos = {col: texto_de(w) for col, w in campos.items()}
@@ -463,10 +488,14 @@ class Aplicacion:
                 messagebox.showinfo("Registro guardado", f"Se registraron los datos del nuevo {quien}.", parent=p)
             else:
                 messagebox.showinfo("Registro actualizado", f"Se actualizaron los datos del {quien}.", parent=p)
-            self.mostrar_gestion(tipo, seleccion=guardados[REGISTROS[tipo]["clave"]])
+            if propio:
+                # La sesión sigue abierta aunque el director cambie su usuario o contraseña.
+                rol_num, _usuario, clave_actual = self.nav.sesion
+                self.nav.sesion = (rol_num, cuenta["username"].get().strip(),
+                                   cuenta["password"].get() or clave_actual)
+            volver(guardados[REGISTROS[tipo]["clave"]])
 
-        self.barra_botones(p, [("Volver", lambda: self.mostrar_gestion(tipo, seleccion=clave)),
-                               ("Guardar", guardar)])
+        self.barra_botones(p, [("Volver", volver), ("Guardar", guardar)])
         self.nav.ajustar(minimo=(760, 0))
 
     # --- formulario de curso (R03) ------------------------------------------
@@ -568,77 +597,3 @@ class Aplicacion:
         self.barra_botones(p, [("Volver", lambda: self.mostrar_gestion("matricula")),
                                ("Registrar", guardar)], fila=3)
         self.nav.ajustar(minimo=(640, 0))
-
-    # --- edición de un campo -------------------------------------------------
-
-    def mostrar_edicion(self, tipo):
-        conf = EDICIONES[tipo]
-        p = self.nav.pantalla()
-        p.columnconfigure(0, weight=1)
-        p.rowconfigure(1, weight=1)
-        self.encabezado(p, conf["rol"])
-        cuerpo = tk.Frame(p, bg=FONDO)
-        cuerpo.grid(row=1, column=0, sticky="nsew", padx=14, pady=10)
-        cuerpo.columnconfigure(1, weight=1)
-        cuerpo.rowconfigure(0, weight=1)
-
-        lista = tk.Listbox(cuerpo, width=24, height=len(conf["opciones"]), fg=TEXTO, bg=VALOR, exportselection=False)
-        for texto, _col in conf["opciones"]:
-            lista.insert("end", texto)
-        lista.grid(row=0, column=0, sticky="nsw")
-
-        derecha = tk.Frame(cuerpo, bg=FONDO)
-        derecha.grid(row=0, column=1, sticky="nsew", padx=(14, 0))
-        derecha.columnconfigure(1, weight=1)
-        boton(derecha, "Elegir campo", lambda: elegir(), F_ETIQUETA).grid(row=0, column=0, sticky="w")
-        # Los campos se crean una sola vez; el original apilaba widgets nuevos en cada Enter.
-        detalle = tk.Frame(derecha, bg=FONDO)
-        detalle.columnconfigure(1, weight=1)
-        nombre, registro = tk.Entry(detalle, font=F_VALOR), tk.Entry(detalle, font=F_VALOR)
-        etiqueta(detalle, conf["nombre"]).grid(row=0, column=0, sticky="w", pady=6)
-        nombre.grid(row=0, column=1, sticky="ew", padx=(8, 0))
-        etiqueta(detalle, conf["registro"]).grid(row=1, column=0, sticky="w", pady=6)
-        registro.grid(row=1, column=1, sticky="ew", padx=(8, 0))
-        elegido = tk.StringVar(detalle)
-        tk.Label(detalle, textvariable=elegido, font=F_ETIQUETA, fg=TEXTO, bg=ETIQUETA).grid(row=2, column=0, sticky="w", pady=6)
-        nuevo = tk.Text(detalle, width=30, height=4, font=F_VALOR, wrap="word")
-        nuevo.grid(row=3, column=0, columnspan=2, sticky="ew")
-        actualizar_btn = boton(derecha, "Actualizar", lambda: actualizar(), F_ETIQUETA)
-        estado = {"columna": None}
-
-        def elegir():
-            seleccion = lista.curselection()
-            if not seleccion:
-                messagebox.showerror("Falta elegir", "Selecciona en la lista el campo que quieres cambiar.", parent=p)
-                return
-            texto, estado["columna"] = conf["opciones"][seleccion[0]]
-            elegido.set(texto)
-            detalle.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(12, 0))
-            actualizar_btn.grid(row=2, column=0, sticky="w", pady=12)
-            self.nav.ajustar(minimo=(640, 0))  # la pantalla creció: se vuelve a medir
-
-        def actualizar():
-            columna, valor = estado["columna"], nuevo.get("1.0", "end-1c")
-            errores = errores_registro(ROL_DE_EDICION[tipo], {columna: valor}, parcial=True)
-            if errores:
-                messagebox.showerror("Dato no válido", errores[0][1], parent=p)
-                return
-            if columna in ("mno", "adno"):
-                valor = valor.strip()
-            try:
-                filas = self.db.actualizar(conf["tabla"], columna, valor,
-                                           {"name": nombre.get(), conf["clave"]: registro.get()})
-            except BaseDeDatosOcupada as e:
-                messagebox.showerror("Base de datos ocupada", str(e), parent=p)
-                return
-            except ErrorIntegridad as e:
-                messagebox.showerror("No se actualizó", f"{e}\nNo se guardó ningún cambio.", parent=p)
-                return
-            if filas == 0:
-                messagebox.showerror("No encontrado", "Ningún registro coincide con ese nombre y número de registro.", parent=p)
-                return
-            messagebox.showinfo('Actualizado', 'El dato se actualizó correctamente.', parent=p)
-
-        self.barra_botones(p, [("Volver", self.mostrar_panel)])
-        self.nav.ajustar(minimo=(640, 0))
-
