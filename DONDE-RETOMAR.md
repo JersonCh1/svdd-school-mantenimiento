@@ -1,6 +1,6 @@
 # Dónde retomar
 
-Estado al **24-10-2026**: versión **v6.0** (MR-101 a MR-105) unida a `main`; plantilla IEEE 14764 en `docs/Plan_Mantenimiento_v6.docx`. Falta revisarla en Windows con `herramientas/verificar_app.py`, etiquetar `v6.0`, generar el `.exe` y crear el release.
+Estado al **29-10-2026**: versión **v6.0** = MR-101 a MR-105 (examen parcial, plantilla IEEE 14764 en `docs/Plan_Mantenimiento_v6.docx`) + **EV03**: R01 = MR-106 notas por matrícula y R02 = MR-107 restaurar respaldo. 139 pruebas en verde y `verificar_app.py` OK en Windows. Los commits de la EV03 están **solo en local**: falta `git push`, etiquetar `v6.0`, generar el `.exe` y crear el release. La pestaña JERSON llena está en `Downloads/EV03 - JERSON - Mantenimiento v6.0.xlsx`; hay que pasarla a la hoja de Google (EV03 vence el 31-oct a las 10:15).
 
 - Repositorio: https://github.com/JersonCh1/svdd-school-mantenimiento (remoto `origin`; `upstream` = proyecto original de rushgala27).
 - Carpeta local: `D:\Proyectos\mis-proyectos\svdd-school-mantenimiento`.
@@ -37,11 +37,9 @@ python -m PyInstaller --noconfirm --onefile --windowed --name SVDD-School --add-
 
 ## Requerimientos candidatos (problemas reales que siguen en el código)
 
-- **Restaurar un respaldo** desde la app (hoy solo se crean). *Perfectivo.*
 - **Columna normalizada con índice** para la búsqueda sin tildes si la base crece mucho (hoy ~30 ms con 10 000 alumnos). *Preventivo.*
 - **Fechas inválidas heredadas** (`tyjuyj`, `jtyutr`): hoy se marcan solo al editar ese registro. *Preventivo.*
 - **Selector de fecha** en lugar de escribirla a mano. *Perfectivo.*
-- **Notas por matrícula** (calificaciones de cada alumno en cada curso y periodo). *Perfectivo.*
 
 ## Trampas conocidas
 
