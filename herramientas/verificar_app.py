@@ -53,6 +53,12 @@ def revisar(root, paso):
     PROBLEMAS.extend((paso, m) for m in malos)
 
 
+def elegir(root, indice, texto):
+    """Elige en el combobox número 'indice' la primera opción que contiene 'texto'."""
+    combo = [w for w in walk(root) if w.winfo_class() == "TCombobox"][indice]
+    combo.current(next(i for i, v in enumerate(combo.cget("values")) if texto in v))
+
+
 def login(root, usuario, clave, rol):
     e = [w for w in walk(root) if isinstance(w, tk.Entry)]
     e[0].delete(0, "end"); e[1].delete(0, "end")
@@ -107,20 +113,42 @@ def escenario(root, _globales):
     btn(root, "Nuevo"); revisar(root, "alta curso")
     e = [w for w in walk(root) if isinstance(w, tk.Entry)]
     e[0].insert(0, "HIS-10"); e[1].insert(0, "Historia"); e[2].insert(0, "10th")
+    elegir(root, 0, "3030")  # MR-106: el docente luisq queda a cargo del curso
     log("Guardar curso:", with_dialogs(root, lambda: btn(root, "Guardar"), [lambda *a: None]))
     btn(root, "Volver")
     btn(root, "Matrículas"); revisar(root, "matrículas")
     btn(root, "Nuevo"); revisar(root, "nueva matrícula")
-    for combo in [w for w in walk(root) if w.winfo_class() == "TCombobox"]:
-        combo.current(0)
+    elegir(root, 0, "3644")  # Rushabh, para que luego vea su nota
+    elegir(root, 1, "HIS-10")
     log("Matricular:", with_dialogs(root, lambda: btn(root, "Registrar"), [lambda *a: None]))
-    log("Repetida:", with_dialogs(root, lambda: ([w for w in walk(root) if w.winfo_class() == "TCombobox"][1].current(0),
-                                                btn(root, "Registrar")), [lambda *a: None]))
-    btn(root, "Volver"); btn(root, "Volver"); btn(root, "Cerrar sesión")
+    log("Repetida:", with_dialogs(root, lambda: (elegir(root, 1, "HIS-10"), btn(root, "Registrar")),
+                                  [lambda *a: None]))
+    btn(root, "Volver")
+
+    # MR-106: el docente a cargo registra la nota desde Matrículas.
+    tabla = [w for w in walk(root) if w.winfo_class() == "Treeview"][0]
+    tabla.selection_set(tabla.get_children()[0]); pump(root)
+    btn(root, "Nota"); revisar(root, "registrar nota")
+    nota = [w for w in walk(root) if isinstance(w, tk.Entry)][0]
+    nota.insert(0, "15")
+    shot(os.path.join(OUT, "registrar_nota.png"), windows=[root])
+    log("Guardar nota:", with_dialogs(root, lambda: btn(root, "Guardar"), [lambda *a: None]))
+    revisar(root, "matrículas con nota"); shot(os.path.join(OUT, "matriculas_nota.png"), windows=[root])
+    guardada = sqlite3.connect("testdata.db").execute("SELECT nota FROM Matricula WHERE gno = 3644").fetchone()
+    log("Nota en la base:", guardada)
+    if not guardada or guardada[0] != 15:
+        PROBLEMAS.append(("registrar nota", f"se esperaba 15 y la base tiene {guardada}"))
+    btn(root, "Volver"); btn(root, "Cerrar sesión")
 
     login(root, "Rushabh123", "12345678", 3)
     revisar(root, "panel alumno"); shot(os.path.join(OUT, "panel_alumno.png"), windows=[root])
-    btn(root, "Cerrar sesión")
+    btn(root, "Mis notas"); revisar(root, "mis notas"); shot(os.path.join(OUT, "mis_notas.png"), windows=[root])
+    tabla = [w for w in walk(root) if w.winfo_class() == "Treeview"][0]
+    valores = [tabla.item(i, "values") for i in tabla.get_children()]
+    log("Mis notas:", valores)
+    if not any("15" in v and "Aprobado" in v for v in valores):
+        PROBLEMAS.append(("mis notas", f"el alumno no ve su nota: {valores}"))
+    btn(root, "Volver"); btn(root, "Cerrar sesión")
     log("Excepciones:", errores)
     PROBLEMAS.extend(("excepción", e) for e in errores)
 

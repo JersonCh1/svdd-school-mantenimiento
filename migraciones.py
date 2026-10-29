@@ -148,6 +148,22 @@ def v6_hashear_contrasenas(con):
     return cambiadas
 
 
+def v6_columna_nota(con):
+    """v6.0 MR-106: nota de cada matrícula, en la escala vigesimal (0 a 20).
+
+    ALTER TABLE ... ADD COLUMN conserva las matrículas que ya existen, que
+    quedan sin nota (NULL) hasta que el docente la registre. El CHECK hace
+    que la base rechace una nota fuera de rango aunque algún formulario no la
+    revise. Devuelve True si agregó la columna."""
+    columnas = [fila[1] for fila in con.execute("PRAGMA table_info(Matricula)")]
+    if "nota" in columnas:
+        return False
+    with con:
+        con.execute("ALTER TABLE Matricula ADD COLUMN nota INTEGER "
+                    "CHECK (nota IS NULL OR nota BETWEEN 0 AND 20)")
+    return True
+
+
 def migrar(con):
     for tabla in v2_columna_foto(con):
         print(f"[migración v2] {tabla}: columna photo_blob agregada")
@@ -162,3 +178,5 @@ def migrar(con):
     v5_tabla_matriculas(con)
     for tabla, usuario in v6_hashear_contrasenas(con):
         print(f"[migración v6] {tabla} ({usuario}): contraseña guardada con hash")
+    if v6_columna_nota(con):
+        print("[migración v6] Matricula: columna nota agregada")

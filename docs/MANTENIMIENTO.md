@@ -276,7 +276,7 @@ Requerimientos funcionales del sistema de gestión escolar. En la hoja original 
 
 ## Versión 6.0 — etiqueta `v6.0`
 
-Iteración de 5 cambios documentada con la plantilla **Plan y Reporte de Mantenimiento (IEEE Std 14764-2006)**. Cada cambio es una solicitud de modificación (MR) con su tipo de mantenimiento según la intención. Diagramas UML de secuencia en `docs/diagramas/v6/`; capturas antes/después en `docs/capturas/v6/`.
+Iteración de 5 cambios documentada con la plantilla **Plan y Reporte de Mantenimiento (IEEE Std 14764-2006)**. Cada cambio es una solicitud de modificación (MR) con su tipo de mantenimiento según la intención. Diagramas UML de secuencia en `docs/diagramas/v6/`; capturas antes/después en `docs/capturas/v6/`. La EV03 (hoja *2026-II - Mantenimiento v6.0*, pestaña JERSON) suma dos requerimientos: R01 = MR-106 y R02 = MR-107.
 
 | MR | Nombre | Tipo | Componente | Prioridad |
 |---|---|---|---|---|
@@ -285,6 +285,7 @@ Iteración de 5 cambios documentada con la plantilla **Plan y Reporte de Manteni
 | MR-103 | Base de datos en la carpeta del usuario si la del .exe es de solo lectura | Adaptativo | `db.py` | P2 Media |
 | MR-104 | Respaldo de la base desde la aplicación | Perfectivo | `db.py`, `pantallas.py` | P3 Normal |
 | MR-105 | Contraseñas con hash PBKDF2 + sal | Preventivo | `seguridad.py`, `db.py`, `migraciones.py`, `gestion.py` | P2 Media |
+| MR-106 (EV03 R01) | Registro de notas por matrícula | Perfectivo | `migraciones.py`, `gestion.py`, `pantallas.py` | P1 Alta |
 
 ### MR-101 — Búsqueda sin tildes ni mayúsculas
 
@@ -336,6 +337,23 @@ Iteración de 5 cambios documentada con la plantilla **Plan y Reporte de Manteni
   - Con 120 000 iteraciones el login tarda ~30 ms y la suite pasó de ~2 s a ~46 s (muchos altas con hash).
 - **Evidencia:** `pbkdf2_sha256$120000$7cc183…` en lugar de `RUpadhyay123`.
 
+### MR-106 (EV03 R01) — Registro de notas por matrícula
+
+- **Descripción:** la matrícula (v5.0 R04) solo decía qué alumno lleva qué curso; no había dónde guardar su calificación. Ahora:
+  - **BD:** columna `nota` en `Matricula` (entero de 0 a 20, escala vigesimal; vacía = sin nota).
+  - **Pantalla:** botón *Nota* (o doble clic) en Matrículas, y *Mis notas* en el panel del alumno, con estado Aprobado (desde 11), Desaprobado o Sin nota, y su promedio.
+  - **Permisos:** el docente solo registra notas de los cursos que tiene a cargo; el director, de cualquiera; el alumno solo consulta las suyas.
+- **Tipo:** Perfectivo — función nueva pedida por los usuarios; no corrige una falla.
+- **Observaciones:**
+  - Es una **migración del esquema con la base en uso**: `ALTER TABLE Matricula ADD COLUMN nota INTEGER CHECK (nota IS NULL OR nota BETWEEN 0 AND 20)`. Las matrículas que ya existían se conservan con nota vacía y la migración no hace nada si la columna ya está (idempotente). Sigue el enfoque **iterativo** del material de migración: se cambia un componente a la vez (la tabla y luego las pantallas) sin detener el sistema ni copiar la base a otra.
+  - El `CHECK` es la segunda barrera: aunque un formulario no validara, la base rechaza un 21 (`IntegrityError`); hay una prueba que lo comprueba.
+  - La entrada de la nota reutiliza `configurar_numerico` (v2.0 R01): solo acepta dos dígitos, así que «-1», «15.5» o letras no se pueden ni escribir; de todos modos `registrar_nota` los rechaza si llegan por otro camino.
+  - El recorrido automático (`verificar_app.py`) matriculaba al primer alumno de la lista y creaba el curso *sin docente*: con la regla de permisos, el docente de prueba no podía poner nota en su propio curso. Se ajustó el script para asignarle el curso y matricular a Rushabh, que luego ve su nota.
+  - Las matrículas no eran editables: el doble clic no hacía nada. Ahora abre el formulario de la nota.
+- **Evidencia:** ![registrar nota](capturas/v6/registrar_nota.png) ![matrículas con nota](capturas/v6/matriculas_nota.png) ![mis notas](capturas/v6/mis_notas.png)
+
 ### Pruebas v6.0
 
 113 pruebas (21 nuevas en `tests/test_v6.py`). ![pruebas](capturas/v6/pruebas_unittest.png)
+
+Con MR-106: 126 pruebas (13 nuevas en `tests/test_notas.py`).

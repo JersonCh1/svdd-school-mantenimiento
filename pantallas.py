@@ -10,7 +10,8 @@ Las tres versiones duplicadas de cada pantalla (alumno, docente, director)
 se reemplazan por una sola, guiada por las tablas de campos de abajo.
 
 v6.0: el director edita sus datos con el formulario completo (MR-102) y
-puede respaldar la base desde su panel (MR-104).
+puede respaldar la base desde su panel (MR-104). El docente registra la
+nota de cada matrícula de sus cursos y el alumno consulta las suyas (MR-106).
 """
 
 import tkinter as tk
@@ -20,7 +21,7 @@ from tkinter import messagebox, ttk
 import fotos
 from db import RESPALDOS_CONSERVADOS, TABLAS, BaseDeDatosOcupada, ErrorIntegridad
 from navegacion import Navegador
-from gestion import REGISTROS, ErrorValidacion, Gestion
+from gestion import NOTA_APROBATORIA, REGISTROS, ErrorValidacion, Gestion, estado_nota
 from validacion import configurar_numerico, periodo_actual
 
 FONDO = '#583830'
@@ -83,8 +84,13 @@ LISTADOS = {
     "matricula": dict(titulo="Matrículas", quien="matrícula", editable=False,
                       buscar="Buscar (N.° de registro, alumno, curso o periodo):", columnas=[
         ("periodo", "Periodo", 80), ("gno", "N.° registro", 90), ("alumno", "Alumno", 180),
-        ("codigo", "Código", 80), ("curso", "Curso", 160), ("grado", "Grado", 70), ("fecha", "Fecha", 100)]),
+        ("codigo", "Código", 80), ("curso", "Curso", 160), ("grado", "Grado", 70), ("fecha", "Fecha", 100),
+        ("nota", "Nota", 60)]),
 }
+
+# MR-106: lo que ve el alumno en «Mis notas».
+COLUMNAS_NOTAS = [("periodo", "Periodo", 80), ("codigo", "Código", 90), ("curso", "Curso", 220),
+                  ("nota", "Nota", 60), ("estado", "Estado", 110)]
 
 # Quién es cada tipo de registro en los mensajes del formulario.
 QUIEN = {"student": "alumno", "teacher": "docente", "principal": "director"}
@@ -256,6 +262,8 @@ class Aplicacion:
             botones += [("Alumnos", lambda: self.mostrar_gestion("student")),
                         ("Cursos", lambda: self.mostrar_gestion("curso")),
                         ("Matrículas", lambda: self.mostrar_gestion("matricula"))]
+        if rol == "student":
+            botones += [("Mis notas", lambda: self.mostrar_notas(fila["gno"]))]
         self.barra_botones(p, botones)
         self.nav.ajustar(minimo=(640, 0))
 
@@ -371,6 +379,11 @@ class Aplicacion:
                 messagebox.showinfo("Hecho", f"{hecho} {conf['quien']}.", parent=p)
                 cargar()
 
+        def poner_nota():
+            clave = elegido()
+            if clave is not None:
+                self.mostrar_formulario_nota(clave)
+
         cargar()
         botones = [("Volver", self.mostrar_panel), ("Nuevo", lambda: self.mostrar_formulario(tipo))]
         if conf.get("editable", True):
@@ -378,6 +391,9 @@ class Aplicacion:
             botones += [("Editar", editar), ("Eliminar", eliminar)]
         else:
             botones += [("Anular", eliminar)]
+        if tipo == "matricula":  # MR-106
+            tabla.bind("<Double-1>", lambda _e: poner_nota())
+            botones += [("Nota", poner_nota)]
         self.barra_botones(p, botones, fila=3)
         self.nav.ajustar(minimo=(760, 460))
 
@@ -597,3 +613,91 @@ class Aplicacion:
         self.barra_botones(p, [("Volver", lambda: self.mostrar_gestion("matricula")),
                                ("Registrar", guardar)], fila=3)
         self.nav.ajustar(minimo=(640, 0))
+
+    # --- notas por matrícula (MR-106) ------------------------------------------
+
+    def trno_sesion(self):
+        """N.° de registro del docente que inició sesión; None para el director
+        (que puede registrar la nota de cualquier curso)."""
+        rol_num, usuario, clave = self.nav.sesion
+        if ROLES[rol_num] != "teacher":
+            return None
+        fila = self.leer_sesion(rol_num, usuario, clave)
+        return None if fila is None else fila["trno"]
+
+    def mostrar_formulario_nota(self, clave):
+        matricula = self.gestion.matricula_detalle(clave)
+        if matricula is None:
+            messagebox.showerror("No encontrada", "La matrícula ya no existe: quizá otro usuario la anuló.",
+                                 parent=self.nav.actual)
+            self.mostrar_gestion("matricula")
+            return
+        p, cuerpo = self.formulario_simple("Registrar nota")
+        datos = (("Alumno:", f"{matricula['gno']} · {matricula['alumno']}"),
+                 ("Curso:", f"{matricula['codigo']} · {matricula['curso']}"),
+                 ("Periodo:", matricula["periodo"]))
+        for i, (texto, valor) in enumerate(datos):
+            etiqueta(cuerpo, texto).grid(row=i, column=0, sticky="w", pady=5, padx=(0, 8))
+            tk.Label(cuerpo, text=valor, font=F_VALOR, fg=TEXTO, bg=VALOR, anchor="w").grid(
+                row=i, column=1, sticky="ew")
+        etiqueta(cuerpo, "Nota (0 a 20):").grid(row=3, column=0, sticky="w", pady=5, padx=(0, 8))
+        nota = tk.Entry(cuerpo, width=6, font=F_VALOR, fg=TEXTO, bg=VALOR)
+        nota.grid(row=3, column=1, sticky="w")
+        configurar_numerico(nota, 2)
+        if matricula["nota"] is not None:
+            nota.insert(0, str(matricula["nota"]))
+        tk.Label(cuerpo, text="Déjala vacía para quitar la nota.", font=F_VALOR, fg=VALOR, bg=FONDO,
+                 anchor="w").grid(row=4, column=0, columnspan=2, sticky="w", pady=(4, 0))
+
+        def guardar():
+            try:
+                valor = self.gestion.registrar_nota(clave, nota.get(), trno=self.trno_sesion())
+            except ErrorValidacion as e:
+                marcar_errores(p, {"nota": nota}, e.errores)
+                return
+            except (ErrorIntegridad, BaseDeDatosOcupada) as e:
+                messagebox.showerror("No se guardó", f"{e}\nNo se guardó ningún cambio.", parent=p)
+                return
+            resultado = "Se quitó la nota" if valor is None else f"Nota {valor} ({estado_nota(valor).lower()})"
+            messagebox.showinfo("Nota guardada", f"{resultado} de {matricula['alumno']} en {matricula['codigo']}.",
+                                parent=p)
+            self.mostrar_gestion("matricula", seleccion=clave)
+
+        nota.bind("<Return>", lambda _e: guardar())
+        self.barra_botones(p, [("Volver", lambda: self.mostrar_gestion("matricula", seleccion=clave)),
+                               ("Guardar", guardar)], fila=3)
+        nota.focus_set()
+        self.nav.ajustar(minimo=(640, 0))
+
+    def mostrar_notas(self, gno):
+        """El alumno consulta sus notas; no puede modificarlas."""
+        p = self.nav.pantalla()
+        p.columnconfigure(0, weight=1)
+        p.rowconfigure(2, weight=1)
+        self.encabezado(p, "student")
+        tk.Label(p, text="Mis notas", font=F_ETIQUETA, fg=VALOR, bg=FONDO, anchor="w").grid(
+            row=1, column=0, sticky="ew", padx=14, pady=(10, 0))
+        cuerpo = tk.Frame(p, bg=FONDO)
+        cuerpo.grid(row=2, column=0, sticky="nsew", padx=14, pady=10)
+        cuerpo.columnconfigure(0, weight=1)
+        cuerpo.rowconfigure(0, weight=1)
+        columnas = [c for c, _t, _a in COLUMNAS_NOTAS]
+        tabla = ttk.Treeview(cuerpo, columns=columnas, show="headings", height=10, selectmode="none")
+        for col, titulo, ancho in COLUMNAS_NOTAS:
+            tabla.heading(col, text=titulo, anchor="w")
+            tabla.column(col, width=ancho, minwidth=50, stretch=True)
+        tabla.grid(row=0, column=0, sticky="nsew")
+        filas = self.gestion.notas_de(gno)
+        for fila in filas:
+            tabla.insert("", "end", values=["" if fila[c] is None else fila[c] for c in columnas])
+        con_nota = [f["nota"] for f in filas if f["nota"] is not None]
+        if not filas:
+            resumen = "Todavía no tienes matrículas registradas."
+        else:
+            aprobados = sum(1 for n in con_nota if n >= NOTA_APROBATORIA)
+            resumen = (f"{len(filas)} curso(s) · {len(con_nota)} con nota · {aprobados} aprobado(s)"
+                       + (f" · promedio {sum(con_nota) / len(con_nota):.1f}" if con_nota else ""))
+        tk.Label(cuerpo, text=resumen, font=F_VALOR, fg=VALOR, bg=FONDO, anchor="w").grid(
+            row=1, column=0, sticky="ew", pady=(6, 0))
+        self.barra_botones(p, [("Volver", self.mostrar_panel)], fila=3)
+        self.nav.ajustar(minimo=(640, 360))

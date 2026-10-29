@@ -5,8 +5,9 @@ Cada operación valida primero (R06) y escribe dentro de una transacción
 (R07): si algo falla, la base queda exactamente como estaba.
 
 v6.0: la búsqueda ignora tildes (MR-101), el director edita sus datos con
-el mismo formulario y reglas que alumnos y docentes (MR-102) y las
-contraseñas se guardan con hash (MR-105).
+el mismo formulario y reglas que alumnos y docentes (MR-102), las
+contraseñas se guardan con hash (MR-105) y cada matrícula tiene su nota
+(MR-106).
 """
 
 from datetime import datetime
@@ -31,7 +32,7 @@ REGISTROS = {
     "matricula": dict(tabla="Matricula", clave="id", quien="matrícula",
                       orden="m.periodo DESC, s.name COLLATE NOCASE, s.lname COLLATE NOCASE, c.codigo",
                       listado="SELECT m.id AS clave, m.periodo, m.gno, s.name || ' ' || s.lname AS alumno, "
-                              "c.codigo, c.nombre AS curso, c.grado, m.fecha "
+                              "c.codigo, c.nombre AS curso, c.grado, m.fecha, m.nota "
                               "FROM Matricula m JOIN StudentData s ON s.gno = m.gno JOIN Curso c ON c.id = m.curso_id"),
 }
 PERSONAS = {t: REGISTROS[t] for t in ("student", "teacher")}
@@ -66,6 +67,16 @@ RELACIONES = {
     "curso": (("SELECT COUNT(*) FROM Matricula WHERE curso_id = ?",
                "El curso tiene {n} alumno(s) matriculado(s). Anula esas matrículas antes de eliminarlo."),),
 }
+
+# MR-106: escala vigesimal; desde 11 el curso está aprobado.
+NOTA_MAXIMA = 20
+NOTA_APROBATORIA = 11
+
+
+def estado_nota(nota):
+    if nota is None:
+        return "Sin nota"
+    return "Aprobado" if nota >= NOTA_APROBATORIA else "Desaprobado"
 
 
 class Gestion:
@@ -185,6 +196,41 @@ class Gestion:
                 if n:
                     raise ErrorValidacion([(conf["clave"], mensaje.format(n=n))])
             return self.db.eliminar(conf["tabla"], {conf["clave"]: clave})
+
+    # --- notas por matrícula (MR-106) ----------------------------------------
+
+    def matricula_detalle(self, clave):
+        """Alumno, curso, docente a cargo y nota de una matrícula."""
+        return self.db.uno(
+            "SELECT m.id, m.periodo, m.gno, s.name || ' ' || s.lname AS alumno, c.codigo, "
+            "c.nombre AS curso, c.trno, m.nota FROM Matricula m JOIN StudentData s ON s.gno = m.gno "
+            "JOIN Curso c ON c.id = m.curso_id WHERE m.id = ?", (clave,))
+
+    def registrar_nota(self, clave, nota, trno=None):
+        """Guarda la nota (0 a 20) de la matrícula 'clave'; vacía la borra.
+
+        Con 'trno' (sesión de docente) solo se acepta si ese docente está a
+        cargo del curso; el director registra sin esa restricción."""
+        texto = "" if nota is None else str(nota).strip()
+        if texto and not (texto.isdigit() and int(texto) <= NOTA_MAXIMA):
+            raise ErrorValidacion([("nota", f"Nota debe ser un número entero de 0 a {NOTA_MAXIMA}.")])
+        valor = int(texto) if texto else None
+        with self.db.transaccion():
+            fila = self.matricula_detalle(clave)
+            if fila is None:
+                raise ErrorValidacion([("nota", "La matrícula ya no existe: quizá otro usuario la anuló.")])
+            if trno is not None and fila["trno"] != trno:
+                raise ErrorValidacion([("nota", "Solo el docente a cargo del curso puede registrar esta nota.")])
+            self.db.actualizar("Matricula", "nota", valor, {"id": clave})
+        return valor
+
+    def notas_de(self, gno):
+        """Matrículas de un alumno con su nota y estado, del periodo más reciente al más antiguo."""
+        filas = self.db.consultar(
+            "SELECT m.id AS clave, m.periodo, c.codigo, c.nombre AS curso, m.nota "
+            "FROM Matricula m JOIN Curso c ON c.id = m.curso_id WHERE m.gno = ? "
+            "ORDER BY m.periodo DESC, c.codigo", (gno,))
+        return [dict(f, estado=estado_nota(f["nota"])) for f in filas]
 
 
 __all__ = ["Gestion", "ErrorValidacion", "ErrorIntegridad", "REGISTROS", "PERSONAS"]

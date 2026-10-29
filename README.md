@@ -4,8 +4,8 @@ Sistema de gestión escolar en **Python + Tkinter + SQLite**, usado como proyect
 
 - Interfaz en español, con login para tres roles: **Director**, **Docente** y **Alumno**.
 - El director ve y edita sus datos y gestiona docentes, alumnos, cursos y matrículas.
-- El docente ve sus datos y gestiona alumnos, cursos y matrículas.
-- El alumno ve sus datos.
+- El docente ve sus datos, gestiona alumnos, cursos y matrículas, y registra la nota (0 a 20) de los cursos que tiene a cargo.
+- El alumno ve sus datos y sus notas.
 - El director puede respaldar la base desde su panel (carpeta `respaldos/`).
 - Cada gestión permite registrar, consultar (con búsqueda por N.° o nombre), actualizar y eliminar, con validación de los datos y sin duplicados.
 - Base de datos SQLite con 5 tablas: `StudentData`, `TeacherData`, `PrincipalData`, `Curso` y `Matricula`, con claves foráneas y transacciones.
@@ -48,7 +48,7 @@ Cada versión es una etiqueta de Git, con un commit por requerimiento. El detall
 | `v4.0` | R01 Navegación de ventana única · R02 Diseño responsivo (grid con pesos) · R03 Conexión única a SQLite (Singleton + WAL) | Correctiva · Perfectiva · Preventiva |
 | `v4.1` | Interfaz en español | Perfectivo |
 | `v5.0` | R01 Gestión de estudiantes · R02 Gestión de docentes · R03 Gestión de cursos · R04 Registro de matrículas · R05 Búsqueda · R06 Validación de datos · R07 Persistencia e integridad | Perfectiva (R01–R05) · Correctiva (R06) · Preventiva (R07) |
-| `v6.0` | MR-101 Búsqueda sin tildes · MR-102 Edición del director con formulario completo · MR-103 Base en la carpeta del usuario · MR-104 Respaldo de la base · MR-105 Contraseñas con hash | Correctivo (101, 102) · Adaptativo (103) · Perfectivo (104) · Preventivo (105) |
+| `v6.0` | MR-101 Búsqueda sin tildes · MR-102 Edición del director con formulario completo · MR-103 Base en la carpeta del usuario · MR-104 Respaldo de la base · MR-105 Contraseñas con hash · MR-106 Notas por matrícula (EV03 R01) | Correctivo (101, 102) · Adaptativo (103) · Perfectivo (104, 106) · Preventivo (105) |
 
 Para ver el sistema tal como estaba en una versión: `git checkout v2.0` (o `v1.0`, `v3.0`, `v4.0`, `v4.1`, `v5.0`, `v6.0`). Hasta la v4.0 la interfaz estaba en inglés, como en el original.
 
