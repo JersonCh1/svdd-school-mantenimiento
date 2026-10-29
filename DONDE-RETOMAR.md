@@ -1,6 +1,6 @@
 # Dónde retomar
 
-Estado al **29-10-2026**: versión **v6.0** = MR-101 a MR-105 (examen parcial, plantilla IEEE 14764 en `docs/Plan_Mantenimiento_v6.docx`) + **EV03**: R01 = MR-106 notas por matrícula y R02 = MR-107 restaurar respaldo. 139 pruebas en verde y `verificar_app.py` OK en Windows. Los commits de la EV03 están **solo en local**: falta `git push`, etiquetar `v6.0`, generar el `.exe` y crear el release. La pestaña JERSON llena está en `Downloads/EV03 - JERSON - Mantenimiento v6.0.xlsx`; hay que pasarla a la hoja de Google (EV03 vence el 31-oct a las 10:15).
+Estado al **29-10-2026**: versión **v6.0** = MR-101 a MR-105 (examen parcial, plantilla IEEE 14764 en `docs/Plan_Mantenimiento_v6.docx`) + **EV03**: R01 = MR-106 notas por matrícula y R02 = MR-107 restaurar respaldo. 139 pruebas en verde y `verificar_app.py` OK en Windows. Subido a `main`, etiqueta `v6.0` y [release v6.0](https://github.com/JersonCh1/svdd-school-mantenimiento/releases/tag/v6.0) con `SVDD-School.exe` (probado: abre y migra su base). Entrega de la EV03 (vence el 31-oct a las 10:15): adjuntar `Downloads/EV03 - Modificaciones - Jerson Chura Pacci.xlsx` (solo la pestaña JERSON) y, si la hoja de Google deja editar, pegar lo mismo en la pestaña JERSON.
 
 - Repositorio: https://github.com/JersonCh1/svdd-school-mantenimiento (remoto `origin`; `upstream` = proyecto original de rushgala27).
 - Carpeta local: `D:\Proyectos\mis-proyectos\svdd-school-mantenimiento`.
