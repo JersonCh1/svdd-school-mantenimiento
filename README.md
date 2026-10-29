@@ -6,7 +6,7 @@ Sistema de gestión escolar en **Python + Tkinter + SQLite**, usado como proyect
 - El director ve y edita sus datos y gestiona docentes, alumnos, cursos y matrículas.
 - El docente ve sus datos, gestiona alumnos, cursos y matrículas, y registra la nota (0 a 20) de los cursos que tiene a cargo.
 - El alumno ve sus datos y sus notas.
-- El director puede respaldar la base desde su panel (carpeta `respaldos/`).
+- El director puede respaldar la base desde su panel (carpeta `respaldos/`) y restaurar un respaldo; si es de una versión anterior, se migra al esquema actual.
 - Cada gestión permite registrar, consultar (con búsqueda por N.° o nombre), actualizar y eliminar, con validación de los datos y sin duplicados.
 - Base de datos SQLite con 5 tablas: `StudentData`, `TeacherData`, `PrincipalData`, `Curso` y `Matricula`, con claves foráneas y transacciones.
 
@@ -48,7 +48,7 @@ Cada versión es una etiqueta de Git, con un commit por requerimiento. El detall
 | `v4.0` | R01 Navegación de ventana única · R02 Diseño responsivo (grid con pesos) · R03 Conexión única a SQLite (Singleton + WAL) | Correctiva · Perfectiva · Preventiva |
 | `v4.1` | Interfaz en español | Perfectivo |
 | `v5.0` | R01 Gestión de estudiantes · R02 Gestión de docentes · R03 Gestión de cursos · R04 Registro de matrículas · R05 Búsqueda · R06 Validación de datos · R07 Persistencia e integridad | Perfectiva (R01–R05) · Correctiva (R06) · Preventiva (R07) |
-| `v6.0` | MR-101 Búsqueda sin tildes · MR-102 Edición del director con formulario completo · MR-103 Base en la carpeta del usuario · MR-104 Respaldo de la base · MR-105 Contraseñas con hash · MR-106 Notas por matrícula (EV03 R01) | Correctivo (101, 102) · Adaptativo (103) · Perfectivo (104, 106) · Preventivo (105) |
+| `v6.0` | MR-101 Búsqueda sin tildes · MR-102 Edición del director con formulario completo · MR-103 Base en la carpeta del usuario · MR-104 Respaldo de la base · MR-105 Contraseñas con hash · MR-106 Notas por matrícula (EV03 R01) · MR-107 Restaurar un respaldo (EV03 R02) | Correctivo (101, 102) · Adaptativo (103) · Perfectivo (104, 106, 107) · Preventivo (105) |
 
 Para ver el sistema tal como estaba en una versión: `git checkout v2.0` (o `v1.0`, `v3.0`, `v4.0`, `v4.1`, `v5.0`, `v6.0`). Hasta la v4.0 la interfaz estaba en inglés, como en el original.
 
@@ -81,7 +81,7 @@ python -m unittest -v                  # pruebas automáticas
 python herramientas/verificar_app.py    # recorrido real de la interfaz (Windows)
 ```
 
-113 pruebas: validación numérica (incluido pegar desde el portapapeles), migraciones, fotos, conexión única (bloqueos reales con y sin WAL, inyección SQL, rutas), navegación de ventana única, diseño adaptable a escalas de pantalla de 1.0 y 1.75 y, desde la v5.0, gestión de alumnos, docentes, cursos y matrículas, búsqueda, validación, duplicados, relaciones y transacciones (rollback y datos recuperados al reabrir la base) y, desde la v6.0, búsqueda sin tildes, contraseñas con hash, edición del director, ubicación de la base y respaldos.
+139 pruebas: validación numérica (incluido pegar desde el portapapeles), migraciones, fotos, conexión única (bloqueos reales con y sin WAL, inyección SQL, rutas), navegación de ventana única, diseño adaptable a escalas de pantalla de 1.0 y 1.75 y, desde la v5.0, gestión de alumnos, docentes, cursos y matrículas, búsqueda, validación, duplicados, relaciones y transacciones (rollback y datos recuperados al reabrir la base) y, desde la v6.0, búsqueda sin tildes, contraseñas con hash, edición del director, ubicación de la base, respaldos, notas por matrícula y restauración de respaldos.
 
 En Linux, las pruebas de interfaz necesitan una pantalla; sin escritorio se pueden correr con `xvfb-run -a python -m unittest`.
 

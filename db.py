@@ -23,6 +23,8 @@ v6.0:
     base se ubica en la carpeta de datos del usuario.
   - MR-104: respaldar() copia la base con la API de respaldo de SQLite.
   - MR-105: autenticar() compara contra el hash de la contraseña.
+  - MR-107: restaurar() reemplaza la base por un respaldo y lo migra a la
+    versión actual del esquema.
 """
 
 import os
@@ -33,6 +35,7 @@ import tempfile
 import threading
 from contextlib import contextmanager
 from datetime import datetime
+from pathlib import Path
 
 import seguridad
 from texto import plano
@@ -122,6 +125,44 @@ class BaseDeDatosOcupada(Exception):
 
 class ErrorIntegridad(Exception):
     """Duplicado o relación rota: la operación se revirtió completa."""
+
+
+class RespaldoInvalido(Exception):
+    """El archivo elegido no es un respaldo de S.V.D.D. School que se pueda restaurar."""
+
+
+# MR-107: sin estas tablas (y sin un director) nadie podría usar la base restaurada.
+TABLAS_MINIMAS = ("StudentData", "TeacherData", "PrincipalData")
+
+
+def leer_respaldo(origen):
+    """Copia el respaldo a memoria después de revisar que sea una base sana de
+    S.V.D.D. School con al menos un director. Devuelve la conexión en memoria."""
+    if not os.path.isfile(origen):
+        raise RespaldoInvalido(f"No se encontró el archivo:\n{origen}")
+    try:
+        # Solo lectura: revisar un respaldo no debe poder modificarlo. as_uri()
+        # codifica los espacios y tildes de la ruta («Mis documentos», etc.).
+        fuente = sqlite3.connect(Path(origen).resolve().as_uri() + "?mode=ro", uri=True)
+    except sqlite3.Error as e:
+        raise RespaldoInvalido(f"No se pudo abrir el archivo: {e}") from e
+    try:
+        if fuente.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+            raise RespaldoInvalido("El respaldo está dañado (falló la revisión de integridad de SQLite).")
+        tablas = {f[0] for f in fuente.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        faltan = [t for t in TABLAS_MINIMAS if t not in tablas]
+        if faltan:
+            raise RespaldoInvalido("El archivo no es un respaldo de S.V.D.D. School: le faltan las tablas "
+                                   + ", ".join(faltan) + ".")
+        if not fuente.execute("SELECT COUNT(*) FROM PrincipalData").fetchone()[0]:
+            raise RespaldoInvalido("El respaldo no tiene ningún director: nadie podría administrar el sistema.")
+        memoria = sqlite3.connect(":memory:")
+        fuente.backup(memoria)
+        return memoria
+    except sqlite3.DatabaseError as e:
+        raise RespaldoInvalido("El archivo no es una base de datos de SQLite.") from e
+    finally:
+        fuente.close()
 
 
 def mensaje_integridad(error):
@@ -275,6 +316,48 @@ class BaseDatos:
         for viejo in respaldos[:-conservar] if conservar else ():
             os.remove(os.path.join(carpeta, viejo))
         return destino
+
+    def restaurar(self, origen):
+        """MR-107: reemplaza la base en uso por el respaldo 'origen'.
+
+        1. Revisa el respaldo y lo copia a memoria antes de tocar nada: si el
+           elegido es el más antiguo de respaldos/, el respaldo de seguridad
+           del paso 2 lo borraría al conservar solo las 10 copias recientes.
+        2. Respalda la base actual, para poder deshacer la restauración.
+        3. Escribe la copia en un archivo temporal, cierra la conexión y lo
+           pone en lugar de testdata.db (os.replace es atómico).
+        4. Reabre la conexión y ejecuta las migraciones: un respaldo de una
+           versión anterior queda con el esquema y los datos de la actual.
+        Devuelve la ruta del respaldo de seguridad."""
+        if os.path.exists(origen) and os.path.samefile(origen, self.ruta):
+            raise RespaldoInvalido("Ese archivo es la base que está en uso; elige un respaldo.")
+        memoria = leer_respaldo(origen)
+        try:
+            previo = self.respaldar()
+            temporal = self.ruta + ".restaurando"
+            destino = sqlite3.connect(temporal)
+            memoria.backup(destino)
+            destino.close()
+        finally:
+            memoria.close()
+        self.con.close()
+        try:
+            # Al cerrar la última conexión SQLite vuelca y borra el -wal. Si
+            # sigue ahí, otro programa tiene la base abierta, y ese -wal se
+            # aplicaría sobre la base restaurada y la dañaría.
+            if os.path.exists(self.ruta + "-wal"):
+                raise OSError("la base sigue abierta en otro programa")
+            os.replace(temporal, self.ruta)
+        except OSError as e:
+            os.remove(temporal)
+            raise BaseDeDatosOcupada(
+                "La base de datos está siendo usada por otro programa. "
+                "Ciérralo e inténtalo de nuevo.") from e
+        finally:
+            self._abrir(self.ruta)
+        from migraciones import migrar  # aquí para no importar migraciones al cargar db
+        migrar(self.con)
+        return previo
 
     def insertar(self, tabla, datos):
         cols = [self._columna(tabla, c) for c in datos]

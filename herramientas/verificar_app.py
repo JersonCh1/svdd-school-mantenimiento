@@ -20,7 +20,7 @@ import tkinter as tk
 AQUI = os.path.dirname(os.path.abspath(__file__))
 RAIZ = os.path.dirname(AQUI)
 sys.path.insert(0, AQUI)
-from conductor_gui import find, log, pick_file, pump, run, shot, walk, with_dialogs  # noqa: E402
+from conductor_gui import find, log, pick_file, pump, run, shot, user32, walk, with_dialogs  # noqa: E402
 
 OUT = os.path.join(AQUI, "capturas")
 DEMO = os.path.join(RAIZ, "docs", "fotos-demo")
@@ -53,6 +53,12 @@ def revisar(root, paso):
     PROBLEMAS.extend((paso, m) for m in malos)
 
 
+def responder_si(hwnd, _titulo, _texto):
+    """Pulsa «Sí» en un messagebox askyesno (WM_CLOSE no lo cierra: no tiene Cancelar)."""
+    user32.SendMessageW(hwnd, 0x0111, 6, 0)  # WM_COMMAND IDYES
+    return "handled"
+
+
 def elegir(root, indice, texto):
     """Elige en el combobox número 'indice' la primera opción que contiene 'texto'."""
     combo = [w for w in walk(root) if w.winfo_class() == "TCombobox"][indice]
@@ -76,6 +82,20 @@ def escenario(root, _globales):
     login(root, "RajanUp12", "RUpadhyay123", 1)
     revisar(root, "panel director"); shot(os.path.join(OUT, "panel_director.png"), windows=[root])
     root.geometry("1350x760"); pump(root, .5); revisar(root, "panel director ancho")
+
+    # MR-107: respaldo, cambio en la base y restauración de ese respaldo.
+    log("Respaldo:", with_dialogs(root, lambda: btn(root, "Respaldo"), [lambda *a: None]))
+    respaldo = max(glob.glob(os.path.join("respaldos", "*.db")), key=os.path.getmtime)
+    con = sqlite3.connect("testdata.db")
+    con.execute("UPDATE PrincipalData SET bplace = 'CAMBIO SIN RESPALDAR'"); con.commit(); con.close()
+    log("Restaurar:", with_dialogs(root, lambda: btn(root, "Restaurar"),
+                                   [pick_file(os.path.abspath(respaldo)), responder_si, lambda *a: None]))
+    revisar(root, "login tras restaurar"); shot(os.path.join(OUT, "login_tras_restaurar.png"), windows=[root])
+    lugar = sqlite3.connect("testdata.db").execute("SELECT bplace FROM PrincipalData").fetchone()[0]
+    log("Lugar de nacimiento tras restaurar:", lugar)
+    if lugar == "CAMBIO SIN RESPALDAR" or not find(root, tk.Button, "INGRESAR"):
+        PROBLEMAS.append(("restaurar", f"no volvió al respaldo o no pidió iniciar sesión (bplace={lugar!r})"))
+    login(root, "RajanUp12", "RUpadhyay123", 1)
 
     btn(root, "Docentes"); revisar(root, "gestión docentes")
     btn(root, "Nuevo"); revisar(root, "alta docente")

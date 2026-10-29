@@ -12,14 +12,15 @@ se reemplazan por una sola, guiada por las tablas de campos de abajo.
 v6.0: el director edita sus datos con el formulario completo (MR-102) y
 puede respaldar la base desde su panel (MR-104). El docente registra la
 nota de cada matrícula de sus cursos y el alumno consulta las suyas (MR-106).
+El director restaura un respaldo desde su panel (MR-107).
 """
 
 import tkinter as tk
 import os
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 
 import fotos
-from db import RESPALDOS_CONSERVADOS, TABLAS, BaseDeDatosOcupada, ErrorIntegridad
+from db import RESPALDOS_CONSERVADOS, TABLAS, BaseDeDatosOcupada, ErrorIntegridad, RespaldoInvalido
 from navegacion import Navegador
 from gestion import NOTA_APROBATORIA, REGISTROS, ErrorValidacion, Gestion, estado_nota
 from validacion import configurar_numerico, periodo_actual
@@ -257,6 +258,7 @@ class Aplicacion:
         if rol == "principal":
             botones += [("Editar mis datos", lambda: self.mostrar_formulario("principal", fila["trno"])),
                         ("Respaldo", self.respaldar),
+                        ("Restaurar", self.restaurar),
                         ("Docentes", lambda: self.mostrar_gestion("teacher"))]
         if rol in ("principal", "teacher"):
             botones += [("Alumnos", lambda: self.mostrar_gestion("student")),
@@ -282,6 +284,39 @@ class Aplicacion:
                             f"Se conservan las {RESPALDOS_CONSERVADOS} copias más recientes en "
                             f"{os.path.basename(os.path.dirname(destino))}/.", parent=p)
         return destino
+
+    def restaurar(self):
+        """MR-107: reemplaza los datos por los de un respaldo elegido. Antes se
+        respalda la base actual, así que la restauración se puede deshacer."""
+        p = self.nav.actual
+        carpeta = os.path.join(os.path.dirname(self.db.ruta), "respaldos")
+        origen = filedialog.askopenfilename(
+            parent=p, title="Elegir respaldo", initialdir=carpeta if os.path.isdir(carpeta) else None,
+            filetypes=[("Respaldo de S.V.D.D. School", "*.db"), ("Todos los archivos", "*.*")])
+        if not origen:
+            return None
+        nombre = os.path.basename(origen)
+        if not messagebox.askyesno("Restaurar respaldo",
+                                   f"Se reemplazarán TODOS los datos actuales por los del respaldo:\n{nombre}\n\n"
+                                   "Antes se guardará una copia de la base actual en respaldos/.\n¿Continuar?",
+                                   parent=p):
+            return None
+        try:
+            previo = self.db.restaurar(origen)
+        except RespaldoInvalido as e:
+            messagebox.showerror("No se restauró", f"{e}\n\nLos datos actuales no se modificaron.", parent=p)
+            return None
+        except BaseDeDatosOcupada as e:
+            messagebox.showerror("Base de datos ocupada", f"{e}\n\nLos datos actuales no se modificaron.", parent=p)
+            return None
+        messagebox.showinfo("Respaldo restaurado",
+                            f"Se restauraron los datos de {nombre}.\n\n"
+                            f"La base anterior quedó guardada en:\n{previo}\n\n"
+                            "Vuelve a iniciar sesión: los usuarios ahora son los del respaldo.", parent=p)
+        # El usuario de la sesión puede no existir en el respaldo, o tener otra contraseña.
+        self.cerrar_sesion()
+        return previo
+
     def barra_botones(self, p, botones, fila=2):
         barra = tk.Frame(p, bg=FONDO)
         barra.grid(row=fila, column=0, sticky="ew", padx=14, pady=(0, 14))

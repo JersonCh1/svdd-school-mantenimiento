@@ -12,7 +12,7 @@ Estado al **24-10-2026**: versión **v6.0** (MR-101 a MR-105) unida a `main`; pl
 ```bash
 pip install -r requirements.txt           # Pillow
 python SchoolManagementSystem.py          # abrir la app
-python -m unittest -v                     # 113 pruebas
+python -m unittest -v                     # 139 pruebas
 python herramientas/verificar_app.py      # recorrido real de la interfaz con los 3 roles (Windows)
 ```
 

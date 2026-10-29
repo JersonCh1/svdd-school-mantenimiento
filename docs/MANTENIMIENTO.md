@@ -286,6 +286,7 @@ Iteración de 5 cambios documentada con la plantilla **Plan y Reporte de Manteni
 | MR-104 | Respaldo de la base desde la aplicación | Perfectivo | `db.py`, `pantallas.py` | P3 Normal |
 | MR-105 | Contraseñas con hash PBKDF2 + sal | Preventivo | `seguridad.py`, `db.py`, `migraciones.py`, `gestion.py` | P2 Media |
 | MR-106 (EV03 R01) | Registro de notas por matrícula | Perfectivo | `migraciones.py`, `gestion.py`, `pantallas.py` | P1 Alta |
+| MR-107 (EV03 R02) | Restaurar un respaldo desde la aplicación | Perfectivo | `db.py`, `pantallas.py` | P2 Media |
 
 ### MR-101 — Búsqueda sin tildes ni mayúsculas
 
@@ -352,8 +353,26 @@ Iteración de 5 cambios documentada con la plantilla **Plan y Reporte de Manteni
   - Las matrículas no eran editables: el doble clic no hacía nada. Ahora abre el formulario de la nota.
 - **Evidencia:** ![registrar nota](capturas/v6/registrar_nota.png) ![matrículas con nota](capturas/v6/matriculas_nota.png) ![mis notas](capturas/v6/mis_notas.png)
 
+### MR-107 (EV03 R02) — Restaurar un respaldo desde la aplicación
+
+- **Descripción:** desde la MR-104 el director podía crear respaldos, pero no volver a uno: había que cerrar la app y reemplazar `testdata.db` a mano. Ahora:
+  - **Pantalla:** botón *Restaurar* en el panel del director. Elige el archivo (abre en `respaldos/`), confirma, y la app pide volver a iniciar sesión.
+  - **BD:** antes de reemplazar se respalda la base actual (la restauración se puede deshacer) y, después, se ejecutan las migraciones.
+  - **Permisos:** solo el director.
+- **Tipo:** Perfectivo — completa la función de respaldo con la operación inversa.
+- **Observaciones:**
+  - **Migración de datos de versiones anteriores:** un respaldo hecho antes de la v6.0 no tiene la columna `nota` y guarda contraseñas en texto plano; uno de la v1.0 ni siquiera tiene `Curso` ni `Matricula`. Al restaurarlo se ejecutan las mismas migraciones idempotentes del arranque y queda con el esquema actual. Se probó restaurando la base original del proyecto. Es la idea de *Butterfly* del material: el respaldo (datos heredados) se abre **solo para lectura** y se transforma al esquema nuevo en una copia, sin tocar el original.
+  - **Defecto encontrado al diseñar el orden de los pasos:** el respaldo de seguridad conserva solo las 10 copias más recientes, así que si el director elige el respaldo **más antiguo**, el de seguridad lo borra antes de leerlo. Se reprodujo con un script: el archivo elegido desaparecía. Por eso el respaldo se revisa y se copia a memoria **antes** de respaldar la base actual.
+  - Se rechazan, sin cambiar nada: un archivo que no es SQLite, una base de otro programa (faltan `StudentData`, `TeacherData` o `PrincipalData`), un respaldo sin director (nadie podría administrar el sistema), la propia base en uso y un respaldo dañado (`PRAGMA integrity_check`).
+  - En modo WAL, si otro programa (por ejemplo un visor de SQLite) tiene la base abierta, queda un `testdata.db-wal` que SQLite aplicaría sobre la base restaurada y la dañaría. Si existe tras cerrar la conexión, se cancela con «Base de datos ocupada».
+  - El reemplazo es `os.replace` de una copia temporal: o queda la base anterior o la restaurada, nunca un archivo a medias.
+  - Como los usuarios y contraseñas pueden ser otros, la sesión se cierra y se vuelve al login.
+  - El recorrido automático no podía confirmar el «¿Continuar?»: el conductor cierra los diálogos con `WM_CLOSE` y un `askyesno` no tiene botón Cancelar, así que lo ignora. Se agregó `responder_si` (envía `IDYES`).
+  - La ruta del respaldo se abre como URI (`Path.as_uri()`): con espacios o tildes («Mis respaldos ñandú») una URI escrita a mano fallaría.
+- **Evidencia:** ![panel con Restaurar](capturas/v6/panel_director_restaurar.png) ![login tras restaurar](capturas/v6/login_tras_restaurar.png)
+
 ### Pruebas v6.0
 
 113 pruebas (21 nuevas en `tests/test_v6.py`). ![pruebas](capturas/v6/pruebas_unittest.png)
 
-Con MR-106: 126 pruebas (13 nuevas en `tests/test_notas.py`).
+Con la EV03: 139 pruebas (13 nuevas en `tests/test_notas.py` y 13 en `tests/test_restaurar.py`). `herramientas/verificar_app.py` recorre también la nota (docente → alumno) y la restauración.
